@@ -1,0 +1,33 @@
+\ProvidesPackage{breakverbatim}
+\RequirePackage{verbatim}
+%\typeout{Using Breakverbatim}
+%
+% Modifies verbatim environments to encourage breaks at blank lines
+% rather than at arbitrary places in the verbatim material.
+%
+\AtBeginDocument{
+\global\def\@verbatim{\the\every@verbatim
+  \trivlist \item \relax
+  \@beginparpenalty \predisplaypenalty
+  \leftskip\@totalleftmargin\rightskip\z@
+  \parindent\z@\parfillskip\@flushglue\parskip\z@
+  \@@par
+  \def\par{%
+    \ifnum\prevgraf=1
+      \def\@@after@@par{\penalty-500}%encourage a break at a blank line
+    \else
+      \def\@@after@@par{\penalty\interlinepenalty}
+    \fi\if@tempswa
+      \leavevmode\null\@@par\@@after@@par
+    \else
+      \@tempswatrue
+      \ifhmode\@@par\@@after@@par\fi
+    \fi}%
+  \def\@noitemerr{\@warning{No verbatim text}}%
+  \obeylines
+  \verbatim@font
+  \let\do\@makeother \dospecials
+  \everypar \expandafter{\the\everypar \unpenalty}}
+}
+
+

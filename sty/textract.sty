@@ -1,0 +1,108 @@
+%
+% Designed to work with TexTract to weave code from latex sources
+% 
+% $Id: textract.sty 61 2010-04-26 10:21:55Z sufrin $
+%
+\ProvidesPackage{textract}
+\RequirePackage{breakverbatim}
+\RequirePackage{listings}
+\RequirePackage{ifthen} 
+
+%
+% Style-definition and style switching
+%
+\def\newcodestyle#1#2{\lstdefinestyle{#1}{language=#1,#2,}}
+\def\codestyle#1{\lstset{style=#1}}
+
+%
+% A few styles
+%
+\newcodestyle{java}
+ {basicstyle=\classsize\sffamily,}
+ 
+\newcodestyle{scala}
+ {basicstyle=\classsize\sffamily,xleftmargin=1em,xrightmargin=1em,}
+
+%\newcodestyle{haskell}
+% {basicstyle=\classsize\sffamily,xleftmargin=1em,xrightmargin=1em,}
+ 
+\newcodestyle{xml}
+ {basicstyle=\classsize\ttfamily,xleftmargin=1em,xrightmargin=1em,}
+
+%
+% Default style is Java
+%
+\codestyle{java}
+
+%
+% {code} blocks are typeset in the standard form and extracted by TexTract
+% 
+\lstnewenvironment{code}[1][]
+{\lstset{xleftmargin=1em,xrightmargin=1em,}}
+{}
+%
+% {code+} blocks are typeset with additional formatting and extracted by TexTract
+%
+\lstnewenvironment{code+}[2][]
+{\lstset{xleftmargin=1em,xrightmargin=1em,captionpos={b},#2,}}
+{}
+%
+% {code*} blocks are treated as comments and extracted by TexTract
+%
+\expandafter\def\csname code*\endcsname#1{\comment}
+\expandafter\let\csname endcode*\endcsname=\endcomment
+
+%
+%
+%
+\def\unquote``#1''{\textrm{#1}}
+\def\textcode#1{{\ttfamily\lstinline{#1}}}
+\def\textcodett#1{{\sffamily\lstinline{#1}}}
+
+%
+%
+%
+\ifx \smaller\undefined \def\smaller{\normalsize} \fi
+\ifx \xmlsize\undefined \def\classsize{\smaller} \fi
+\ifx \classsize\undefined \def\classsize{\smaller} \fi
+\ifx \javasize\undefined \def\javasize{\smaller} \fi
+\ifx \Javasize\undefined \def\Javasize{} \fi
+\ifx \smalljavasize\undefined \def\smalljavasize{\normalsize} \fi
+
+%
+% Doesn't do anything, but doc blocks are transformed into java/scala block comments. 
+%
+\newenvironment{doc}[2][]{\begin{smaller}}{\end{smaller}}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

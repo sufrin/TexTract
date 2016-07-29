@@ -1,0 +1,895 @@
+\documentclass[a4paper]{article}
+\usepackage{hyperref,textract,pdffig,xspace,txfonts,verbatimstyle,listscala,alltt,rotating}
+%
+%       Generate pdf using the doc ant task.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\usepackage{endnotes}
+\AtEndDocument{
+ \begingroup
+ \parindent 0pt
+ \parskip 2ex
+ \def\enotesize{\normalsize}
+ \label{notes}
+ \theendnotes
+ \endgroup
+
+{{
+\vfill
+\mbox{$Subversion$ $Revision: 70 $}\\
+\it \mbox{Copyleft
+\raisebox{-0.6ex}{\pdffig[height=2.5ex]{CopyLeft197}}
+2008}, The Master, Fellows, and Scholars, Christnose College.
+\\
+All Wrongs Reversed.}}
+}
+
+\makeatletter
+\def\enoteformat{\rightskip\z@ \leftskip\z@ 
+     \leavevmode\llap{\hbox{\@theenmark.\quad }}}
+\makeatother
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\def\L#1{\raisebox{-.5ex}{#1}}
+\def\R#1{\raisebox{.5ex}{#1}}
+\def\RR#1{\raisebox{1ex}{#1}}
+\def\TexTract{\RR{\begin{turn}{-10}\textsc{\textsf{\textbf{T\L{e}X\R{T}r\L{a}c\R{T}}}}\end{turn}}\xspace}
+\def\Tex{\TeX\xspace}
+\def\Latex{\LaTeX\xspace}
+\def\UPSIDE#1{\begin{turn}{-40}#1\end{turn}\xspace}
+
+\lstdefinestyle{indented}{xleftmargin=1em,xrightmargin=1em,}
+
+\lstnewenvironment{|code|}[2][]
+{\lstset{captionpos={b},style=indented,morecomment=[is]{/**}{*/},frame={tBlR},#2,}}
+{}
+
+\def\chunkname#1{\textsf{#1}}
+
+\def\xxxxx{\begin{center}{\rule{4in}{0.01in}}\end{center}}
+
+\lstset{aboveskip=\bigskipamount}
+
+\newenvironment{showcode}
+{\begin{center}
+\begin{tabular}{||l}
+\begin{minipage}{5in}
+}{
+\end{minipage}
+\end{tabular}
+\end{center}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\title{\TexTract\\{\Large a demiliterate\thanks{pronounced \textit{demmy} \textit{literate}}
+\ programming system}}
+\author{
+Fr. Saul N. Braindrane\thanks{Saul Braindrane holds 
+          the Kiwipedia Chair of Practical Contrarianism, and is 
+          Fellow and Tutor in Computational Theology at
+          Christnose College, Oxford.}
+\\
+Bernard Alan Sufrin\thanks{Bernard Sufrin
+is Fellow and Tutor in Computation at Worcester College, Oxford.}
+}
+\date{April 1st, 2008}
+\parindent=0pt\parskip=\medskipamount
+
+\begin{document}
+\verbatimsize{\footnotesize}
+\maketitle
+\vfill
+\begin{abstract}
+\noindent 
+You were convinced by the literate programming propaganda, and
+you wanted to be able to write an article about a program,
+and to derive the article and the text of the program from the
+same manuscript. 
+%
+%
+So you went out there on the Web and read all you could about the
+literate programming systems that were around and got that
+\UPSIDE{sinking} feeling....  It may be time to consider
+demiliterate programming.
+\end{abstract}
+\vfill
+\begin{center}
+
+\renewcommand{\thefootnote}{$(p\pageref{notes})$}
+
+\begin{tabular}{p{2.5in}}
+\normalsize \raggedright ``{Demiliterate programming is 
+          to literate programming as
+          ping-pong is to chess.}''\endnote{\textsf{Anne R. Surfbird:}
+          \textsl{On seeing the first literate 
+          programming system of Spring}, Onomatop{\oe}ia Inc., March 2008. (Quoted
+          without permission)}\footnote{}
+\end{tabular}
+
+\vfill\vfill
+\end{center}
+\vfill
+\newpage
+\tableofcontents
+\clearpage
+%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%
+
+\section{Demiliterate programming}
+
+\TexTract has a shallower learning-curve than most literate programming
+systems we have seen;  partly because there isn't much to
+learn.  A \TexTract manuscript is  a \Tex or \Latex manuscript in which
+some sections of program code are marked-up \textit{both} to be
+recognised by the \TexTract system \textit{and} to be typeset by
+a  \Tex or \Latex processor.
+
+\TexTract\endnote{The
+\TexTract system can be invoked as a command-line program or an Ant
+task.} is used to extract program text files from a \Tex
+or \Latex manu\-script; this step corresponds to the ``tangling''
+phase described by Knuth and his followers. There is no ``weaving''
+phase at all: the manuscript is typeset by the usual \Tex or \Latex processor. 
+%
+As it happens we use the enormously versatile  
+\texttt{listings}\endnote{\texttt{%
+http://www.ctan.org/tex-archive/macros/latex/contrib/listings/}}
+package to define code section markup in \Latex, but you don't need
+to if you have something better.
+
+We call this demiliterate programming because the markup and code
+extraction details are less than half as hard to master as those
+of most extant literate-program\-ming systems. On the other hand, it
+cannot compensate for weaknesses in the design of the declarative
+structures of a  programming language: something that many
+literate-programming systems (try to) achieve. 
+
+In short, if you are already happy being a literate programmer then
+you probably don't need \TexTract; and if you are a semi-literate
+programmer there's probably not a lot it can do for
+you.
+
+\xxxxx
+
+\TexTract code sections take one of the forms:
+
+\begin{center}
+\begin{tabular}{ll}
+
+\begin{minipage}{1.5in}
+\def\\{\(\backslash\)}
+\begin{alltt}
+\\begin\{\(kind\)\}
+   \(body\)
+\\end\{\(kind\)\}
+\end{alltt}
+\end{minipage}
+
+&
+
+\begin{minipage}{1.5in}
+\def\\{\(\backslash\)}
+\begin{alltt}
+\\begin\{\(kind\)\}[\(path\)]
+   \(body\)
+\\end\{\(kind\)\}
+\end{alltt}
+\end{minipage}
+
+\\[5ex]
+
+\begin{minipage}{1.9in}
+\def\\{\(\backslash\)}
+\begin{alltt}
+\\begin\{\(kind\)\}\(\cdots{}other\ parameters\cdots\)
+   \(body\)
+\\end\{\(kind\)\}
+\end{alltt}
+\end{minipage}
+
+&
+
+\begin{minipage}{1.9in}
+\def\\{\(\backslash\)}
+\begin{alltt}
+\\begin\{\(kind\)\}[\(path\)]\(\cdots{}other\ parameters\cdots\)
+   \(body\)
+\\end\{\(kind\)\}
+\end{alltt}
+\end{minipage}
+
+\end{tabular}
+\end{center}
+
+The code section's $kind$ matches the regular expression:
+\texttt{[+-=*|]*code[+-=*|]*}.\endnote{In other words a code section's $kind$ is a
+sequence of characters consisting of zero or more occurences of one
+of the characters \verb"+-=*|", followed by the word \verb"code",
+followed by zero or more occurences of one of the characters
+\verb"+-=*|". In both the Ant task and the command-line program even the word \verb"code"\ can be
+changed to an arbitrary regular expression pattern by setting a parameter.
+For example, if you wanted your ``code'' environments to be named either \texttt{CODE} or
+\texttt{LOGIC}, you could set \texttt{code="CODE|LOGIC"} (see appendix \ref{tools}).}
+%
+The optional $path$ parameter (when it appears) is either a
+\textit{code-snippet} label or a path in the filestore. 
+A code snippet label is a sequence of non-\verb/]/ characters that starts with 3 dots 
+or a sequence of non-\verb/'/ characters between double-\verb/``/quotes\verb/''/.
+
+\TexTract pays no attention to any $other\ parameters$ that appear.\endnote{The standard \TexTract style file specifies a few specific $kind$s, each with
+its own fixed number of (non-optional) parameters.}
+It simply appends the $body$ of each code section to the file or snippet
+specified by its $[path]$ parameter. If the particular path is appearing for
+the first time in a manuscript then the file or snippet it specifies is
+created first. If the parameter is not present (or blank), then
+the most recent $path$ is used instead. 
+
+Lines that consist entirely of snippet labels, \textit{viz} lines of the form 
+\mbox{\texttt{...$text$}} or
+``$text$'', are expanded when code bodies are being copied to files.
+
+That's all!
+
+\xxxxx
+
+\section{Getting Started}
+
+Here's a \TexTract \Latex manuscript:
+%\begin{footnotesize}
+\begin{verbatim}
+\documentclass{article}
+\usepackage{textract}
+\begin{document}
+\codestyle{java}
+Here's  the \TexTract ``Hello World'' in Java.
+\begin{code}[HelloWorld.java]
+ public class HelloWorld
+ { public static void main(String[] args) 
+   { System.out.println("Hello World") }
+ }
+\end{code}
+\end{document}
+\end{verbatim}
+%\end{footnotesize}
+and here (to the right of the verticals) is what it looks like when it is \Latex{}eD. 
+
+
+\begin{showcode}
+Here's  the \TexTract ``Hello World'' in Java.
+
+\begin{code}[...]
+ public class HelloWorld
+ { public static void main(String[] args) 
+   { System.out.println("Hello World") }
+ }
+\end{code}
+\end{showcode}
+
+When it's \TexTract{}eD the code is copied to \texttt{HelloWorld.java}. 
+
+\begin{center}
+\begin{minipage}{4in}
+\verbatiminput{HelloWorld.java}
+\end{minipage}
+\end{center}
+The comment on the line before the class declaration indicates the
+line number -- in the latex source file of \textit{this documentation} -- of the
+\verb/begin{code}/ declaration that gave rise to the code. Such comments needn't necessarily be
+present (see the FAQ for details), but we have enabled them for the
+purposes of generating this documentation.
+
+We expect you already know what this code does after it is compiled and run.
+
+
+\xxxxx\newpage
+%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%
+
+So far so good? But maybe you want to typeset your code in a slightly
+different form -- perhaps as a framed floating listing.  The code
+markup environments we are using for this article are based on the
+\texttt{listings} package. This package offers a good deal of
+stylistic flexibility to the literate programmer, and does so without
+the slightest pain save that involved in making good {\ae}sthetic choices.
+You don't have to use it if you don't want to, but it's very well documented
+and seems very reliable.
+
+\begin{code+}[...]{frame=tBlr,float=b,label=HWJ,caption={Hello Chum}}
+ public class Hi
+ {
+   public static void main(String[] args) 
+   { try 
+     { System.out.print("Hello"); }
+     finally
+     { System.out.println("Chum"); }
+   }
+ }
+\end{code+}
+
+We generated Listing \ref{HWJ} by using the following markup.
+
+
+\begin{verbatim}
+    \begin{code+}[Hi.java]{frame=tBlr,float=b,label=HWJ,caption={Hello Chum}} 
+     public class Hi
+     {
+       public static void main(String[] args) 
+       { try 
+         { System.out.print("Hello"); }
+         finally
+         { System.out.println("Chum"); } 
+       }
+     }
+    \end{code+}
+\end{verbatim}
+
+The \texttt{code+} environment takes an additional parameter that
+specifies further arguments for the \texttt{listings} macros. Here
+we specify a frame, then a floating constraint, a label and a
+caption: the latter work in the same way as in the \verb/figure/
+environment.
+
+The resulting code in \texttt{Hi.java} is
+\verbatiminput{Hi.java}
+
+\xxxxx\newpage
+
+%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%
+
+
+
+The \texttt{listings} package lets us declare that material 
+delimited by certain kinds of comment delimiter be suppressed from 
+the listing. This is convenient if we don't want to disfigure
+our pretty article about a Java program by including javadoc
+comments in it. 
+
+The \verb/|code|/ environment and indented style are defined, at the top
+of this article, by
+\begin{verbatim}
+   \lstnewenvironment{|code|}[2][]
+   {\lstset{ captionpos={b}
+           , morecomment=[is]{/**}{*/}
+           , style=indented,frame={tBlR},#2,}}
+   {}
+   \lstdefinestyle{indented}{xleftmargin=1em,xrightmargin=1em,}
+\end{verbatim}
+
+
+So we can achieve a framed and titled effect, and suppress
+the javadoc comment from the typeset article by using the markup:
+\begin{verbatim}
+    \begin{|code|}[Hello/Again.java]{title={Hello Again}} 
+     package Hello;
+     /**
+        <tt>Hello.Again</tt> is a particularly useless program. 
+     */
+     ... Code of HelloAgain     
+    \end{|code|}
+\end{verbatim}
+
+This gets typeset as:
+\begin{|code|}[...]{title={Hello Again}} 
+package Hello;
+/**
+   <tt>HelloAgain</tt> is a particularly useless
+   program.
+   <p>
+   But we'll tell you about it if you want. 
+*/
+... Code of HelloAgain
+\end{|code|}
+
+Notice that no listing number is generated: this is what happens
+when a code section is \texttt{title}d rather than \texttt{caption}ed.
+
+\xxxxx
+
+Among the host of useful features offered by \texttt{listings} is
+the power to typeset code using more mathematical-looking symbols.
+One way of doing this systematically is to make a supplementary language or
+style declaration.
+
+For example, the following defines a ``mathematical'' style:
+\begin{verbatim}
+     \lstdefinestyle{mathematical}{literate={<-}{$\in$}1{+=}{$:\cup$}2}
+\end{verbatim}
+\lstdefinestyle{mathematical}{literate={<-}{$\in$}1{+=}{$:\cup$}2}
+
+This can be used as a local style modifier, for example in
+\begin{verbatim}
+     \begin{code+}[litexample]{style=mathematical}
+          for (arg<-args) set += arg 
+     \end{code+}
+\end{verbatim}
+which typesets as:
+\begin{code+}[...]{style=mathematical}
+     for (arg<-args) set += arg 
+\end{code+}
+
+To use it systematically we would incorporate it into a standard code section
+declaration, for example
+\begin{verbatim}
+     \lstnewenvironment{+code}[1][]{\lstset{style=mathematical,}}{}
+\end{verbatim}
+\xxxxx\newpage
+%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%
+
+\section{Code Snippets}
+We imagine that if you got this far you may want to write about
+more complicated programs than we have so far shown.  For example,
+suppose you want to present a Scala program that imports some library
+material, then defines a simple class and a main program.
+
+If you want to present it ``top-down'', you could define
+its Scala text as follows in the manuscript file:
+
+\begin{verbatim}
+\codestyle{scala}
+\begin{code}[TexTract/program.scala]
+ package TexTract
+ ... The imports
+ ... The definition of PowerSet
+ 
+ object program
+ { def main(args: Array[String]) =
+   { val set = new PowerSet
+     ... The main loop
+   }
+ }
+\end{code}
+\end{verbatim}
+
+
+This would be shown in your article as:
+\codestyle{scala}
+\begin{code}[...]
+ package TexTract
+ ... The imports 
+ ... The definition of PowerSet
+ 
+ object program
+ { def main(args: Array[String]) =
+   { val set = new PowerSet
+     ... The main loop
+   }
+ }
+\end{code}
+
+
+You might want to present the body of the program first. It doesn't take much 
+explanation, so you can present it all at once:
+\begin{code}[...]
+     for (arg<-args) set add arg
+     println(set.getSubsets)
+\end{code}
+
+The listing above was generated by
+
+\begin{verbatim}
+\begin{code}[...The main loop]
+     for (arg<-args) set add arg
+     println(set.getSubsets)
+\end{code}
+\end{verbatim}
+
+
+Notice that the name of the code section starts with three dots.
+The effect of this is to define a chunk of program text (a so-called
+\textit{code-snippet}) with the symbolic label:
+``\chunkname{themainloop}''.\endnote{To avoid hard-so-spot mistakes
+in references to them, snippet labels are ``normalized'' by removing
+any spaces, and transforming their letters to lowercase.} When the
+body of a code section is finally output to its file, each line
+that consists only of a reference to a snippet, \textit{i.e.} each
+line of the form \mbox{\texttt{...$text$}} or ``$text$'',  is
+replaced by the body of the snippet (if it has been defined), and
+replaced by the text (marked as a comment) otherwise.
+
+
+To define the imports snippet we might write
+\begin{verbatim}
+\begin{|code|}[... The imports]{title={The imports}}
+ import  scala.collection.mutable._
+ import  java.io._
+ import  java.util.regex._
+\end{|code|}
+\end{verbatim}
+
+and it would be typeset as:
+
+\begin{|code|}[...]{title={The imports}}
+import  scala.collection.mutable._
+import  java.io._
+import  java.util.regex._
+\end{|code|}
+
+
+If we forget to include a code section describing ``The definition of Powerset'',
+then the code eventually written to \texttt{program.scala} will be:
+
+\begin{center}
+\fbox
+{\begin{minipage}{4in}
+\verbatiminput{TexTract/program.scala}
+\end{minipage}
+}
+\end{center}
+
+Notice that: ``\texttt{... The definition of Powerset}'' has been
+transformed into a one-line comment.
+
+% \begin{code}[... The definition of Foo]
+% ... The definition of bar
+% \end{code}
+% \begin{code}[... The definition of bar]
+% ... The definition of foo
+% \end{code}
+
+\xxxxx\newpage
+
+\section{Special Code Sections}
+\subsection{Anonymous Sections}
+When a code section without a name appears, the enclosed code
+is typeset in the usual way, but it is appended to
+the previously-named code section or file.
+
+This makes it convenient to intercalate sections of code intended for the
+same file  or section between latex comments. 
+
+\subsection{Hidden Sections}
+The standard \TexTract style file defines the \texttt{code*} section
+to treat its content as a \Latex comment. Material
+within such sections is still extracted in the
+usual way.
+
+\xxxxx
+
+A simple example of a passage that uses hidden and anonymous sections is:
+\codestyle{java}
+\begin{verbatim}
+\begin{code*}[What/Ho.java]
+package What;
+\end{code*}
+This is the code of the ``What.Ho'' program. 
+As you can see, it is not very complicated:
+\begin{code}
+public static void main(String[] args)
+{
+  System.err.println("What ");
+\end{code}
+and we don't need to do a sophisticated proof of correctness.
+\begin{code}
+  System.err.println("Ho?");
+}
+\end{code}
+\end{verbatim}
+
+In the java code style this gets typeset as:
+
+
+\begin{center}
+\begin{minipage}{4in}
+\begin{code*}[...]
+package What;
+\end{code*}
+This is the code of the ``What.Ho'' program. 
+As you can see, it is not very complicated:
+\begin{code}
+public static void main(String[] args)
+{
+  System.err.println("What ");
+\end{code}
+and we don't need to do a sophisticated proof of correctness.
+\begin{code}
+  System.err.println("Ho?");
+}
+\end{code}
+\end{minipage}
+\end{center}
+
+The resulting code is
+\begin{center}
+\begin{minipage}{4in}
+\verbatiminput{What/Ho.java}
+\end{minipage}
+\end{center}
+
+\xxxxx
+\section{Tips and Tricks}
+\begin{enumerate}
+\item Find out as much as you can about the \texttt{listings} package: in
+particular how to define language dialects, styles and new listing environments.
+ 
+\item Use a fairly small set of \texttt{code}-like environments in your documents. 
+
+\item If you want to typeset a code section without it being sent to a file, the best 
+thing to do is to define a listing environment whose name doesn't
+match the code-section pattern. Short of that, a good hack is to use the 
+snippet with the empty name as the path part of an ordinary code section. For
+example (and just to show what \texttt{listings} makes of Haskell), the code section:
+
+\begin{verbatim}
+     \begin{code+}[...]{language=haskell,style=mathematical}
+     rats :: [ Rational ] 
+     rats  = concat (diags[[m/n | m<-[1..]] | n<-[1..]]) 
+     diags = diags' [] 
+             where 
+              diags' xss (ys:yss) = 
+                     map head xss : diags'(ys:map tail xss) yss 
+     \end{code+}
+\end{verbatim}
+
+gets typeset as:
+
+\begin{code+}[...]{language=haskell,style=mathematical}
+rats :: [ Rational ] 
+rats  = concat (diags[[m/n | m<-[1..]] | n<-[1..]]) 
+diags = diags' [] 
+        where 
+         diags' xss (ys:yss) = 
+                map head xss : diags'(ys:map tail xss) yss 
+\end{code+}
+\end{enumerate}
+\xxxxx\newpage
+%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%
+
+\appendix
+\begin{center}
+\Large{\textbf{Appendix}}
+\end{center}
+\section{FAQ}
+\def\Q{\item[Q:]}
+\def\A{\item[A:]}
+\begin{itemize}
+\Q Can I use more than one programming language in a single \TexTract manuscript?
+\A Yes; and you can also generate more than one program file from a single 
+   \TexTract manuscript.
+
+\Q Must the whole of a code section macro call appear on a single line in the manuscript?
+\A It must; and we certainly won't be writing a \Latex or \Tex parser to change that.
+
+\Q How hard is tracking error message locations?
+\A Unless you use snippets or output compression it's trivial: output files 
+are written so that manuscript and output file line numbers are
+identical. If you set \texttt{number=on} 
+in the \texttt{<textract>} ant task, then compression
+is enabled and output files are annotated
+with source manuscript line numbers. Each annotation
+is in the form of a line-number pragma for
+the language being output if \TexTract\ knows that form; otherwise
+it's in the form of a comment for that language. For example, 
+these code blocks  -- embedded in the latex source file of \textit{this documentation}:
+\begin{verbatim}
+      \begin{code}[propositions.hs]
+      module Propositions where 
+        ... Imports     
+        data Prop = Atom Atomic         -- a, b ...
+                  | Not  Prop           -- not p
+                  | Prop `And` Prop     -- p ∧ q
+                  | Prop `Or`  Prop     -- p ∨ q
+                  | Prop `Imp` Prop     -- p ⇒ q
+                  | Prop `Iff` Prop     -- p ⇔ q
+                  deriving (Eq)  
+                  
+        instance (Show Prop) where showsPrec = showProp
+      \end{code}
+      
+      %
+      % The main story about propositions
+      %
+      
+      \begin{code}[... Imports]
+      import Prelude(Eq, String, Show, ShowS, Int, 
+                     map, (.), (++), foldr, take, 
+                     unlines, (>=), (+), (*), ($), 
+                     showParen, showString, showsPrec, show)
+      \end{code}
+\end{verbatim}
+Give rise to the Haskell source file \verb/propositions.hs/)
+\begin{itemize}\item[]
+\verbatiminput{propositions.hs}
+\end{itemize}
+
+The answer to the next question may also be helpful.
+
+\Q Is snippet-substitution nested?
+\A Judge for yourself. This code block:
+\begin{verbatim}
+     \begin{code}[foo.tex]
+     ... Undefined snippet
+     ... Answer
+     \end{code}    
+     \begin{code}[... first clause]
+     Snippet-expansion takes place in the final output 
+     phase of \TexTract,
+     \end{code}        
+     \begin{code}[... Answer]
+     ... first clause 
+     and the bodies of nested snippets are themselves
+     subject to snippet-expansion as they are output.
+     ... another undefined snippet
+     \end{code}
+\end{verbatim}
+leads to this output (in \verb}foo.tex})
+\begin{itemize}\item[]
+\verbatiminput{foo.tex}
+\end{itemize}
+\begin{code*}[JunkText.pqr]
+This is some junk text
+It ought not to appear in the document
+There should be a comment on the line below
+... This is an undefined junk snippet that should be commented 
+\end{code*}
+\begin{code*}[JunkText.abc]
+This is some junk text
+It ought not to appear in the document
+There should NOT be a comment on the line below
+... This is an undefined junk snippet that should be commented 
+\end{code*}
+
+The first line-number annotation is the line number -- in the latex source of this
+document --  of the (snippet-call) text \verb/... Undefined snippet/. 
+The next three annotations
+denote, respectively, the line number of the (snippet-call) text \verb}... Answer}, the
+line number of the (snippet-call) \verb}... first clause}, and
+the line number of the first line of the expansion of \verb}... first clause}.
+\end{itemize}
+\xxxxx\newpage
+
+
+          
+%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%
+
+\newpage
+
+\section{Tools}
+\label{tools}
+\subsection{Ant Task}
+
+To define the ant task in your build task:
+\begin{verbatim}
+        <taskdef name="textract" 
+                 classpath="${TEXTRACTHOME}/textract.jar" classname="ant.Textract"/>
+\end{verbatim}
+
+The task has the following parameters
+\begin{alltt}
+                          \textrm{DEFAULT}        \textrm{Effect of default setting}
+  <textract   root      = "TEXTRACT"      \textrm{Output paths are prefixed with this path}
+              compress  = "off"           \textrm{Output files are not compressed}
+              code      = "code"          \textrm{core of the block kind of a code section}
+              ans       = "ans"           \textrm{name of the answer environment}
+              answers   = "on"            \textrm{code within ans(wer) environments is not excluded}
+              number    = "off"           \textrm{No line-number comments are placed in output files}
+              enc       = "UTF8"          \textrm{Encoding of input and output files}
+              force     = "off"           \textrm{If source is up-to-date output is not regenerated}
+              errnone   = "on"            \textrm{Fail if no existing source files are specified}
+              legacy    = "off"           \textrm{Legacy processing is disabled (see below)}
+              code      = "code"          \textrm{Specify the \{code\} pattern}
+              comments  = "|.hs|\{-|-\}|.java|//||.scala|//||.tex|%||"            
+                           \textrm{Specify comment conventions for output files}
+              pragmas   = "|.hs|\{-# LINE %n \"%f\" #-\}|.c|#line %n \"%f\""            
+                           \textrm{Specify line number pragma conventions for output files}
+\end{alltt}
+It also takes a \texttt{file=\textsl{path}} to specify a
+single file to process, or one or more nested
+\texttt{<fileset>...</fileset>} elements to specify a
+collection of existing files. It is usually an error if such
+a specification results in no files to process.
+
+When output files are compressed there is no attempt to correlate the
+location of an output line to its location in the source manuscript.
+
+{\def\punct{\underline{\oplus}}
+Comment conventions have to be specified all at once. The specification
+takes the form $\punct{}spec\punct{}spec\punct{}spec...$ where
+$\punct$ is any character that is not going to be part of a comment
+specification, and all $spec$s take the form
+$.ext\punct{}left\punct{}right$, where $left$ and $right$ are
+$\punct$-free strings denoting the opening (respective closing)
+brackets of a comment, and $ext$ is the filename extension.
+
+Line-number pragma conventions are specified similarly. Each $spec$ takes the form
+$.ext\punct{}format$, where $format$ is a $\punct$-free string. When
+outputting a line-number annotation, this text
+is written with \verb/%f/ replaced (everywhere) by the input filename, and \verb/%n/
+replaced (everywhere) by the line number.
+}
+
+\newpage
+\subsection{Command-Line Task}
+\begin{alltt}
+ textract [switch]* [file]*
+ 
+   -c                compress output (eliminate latex source lines)
+   -a                suppress classes contained within {ans} environments (implies -c)
+   -d=<root>         specify root directory for output  
+   -c=<root>         implies -c -d=<root>  
+   -a=<root>         implies -a -c=<root> 
+   -f                force code generation, even if the generated files are up to date 
+   -l                force legacy code block processing 
+   -n                place line-number comments on output lines
+   -enc=<enc>        Input and output file(s) are in the given encoding (default is UTF8)
+   -code=<pat>       Specify the \{code\} pattern -- initially 'code'
+   -comments=<specs> Specify output language comment conventions 
+                     (see Ant Task)
+   -pragmas=<specs>  Specify output language line number pragma conventions 
+                     (see Ant Task)
+\end{alltt}
+
+This assumes that the \texttt{textract} command is the equivalent of
+
+\begin{verbatim}
+     scala -cp $TEXTRACTHOME/textract.jar textract
+\end{verbatim}
+
+
+\newpage
+\section{\protect{{textract.sty}}}
+
+\verbatiminput{textract.sty}
+
+\newpage                
+
+\section{Legacy Processing}
+In legacy processing mode many bets are off. Code blocks take one of the forms
+\begin{verbatim}
+\begin{class}{java filename without .java extension}
+  body
+\end{class}
+
+\begin{hideclass}{java filename without .java extension}
+  body
+\end{hideclass} 
+
+\begin{obj}{scala filename without .scala extension}
+  body
+\end{obj}
+
+\begin{hideobj}{scala filename without .scala extension}
+  body
+\end{hideobj}
+\end{verbatim}
+\clearpage
+\end{document}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

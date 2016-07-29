@@ -1,0 +1,16 @@
+
+<!-- 
+        $Id: test.xml 19 2008-04-04 15:39:52Z sufrin $ 
+        Tests an installed textract
+-->
+<project name="TexTractTest"  default="test">
+  <property name=".ant" value="${user.home}/.ant" />
+  <import file="${.ant}/textract.xml"/>
+  <target name="test" depends="textract">
+    <textract>
+      <fileset dir="." includes="**/*tex"/>
+    </textract>
+  </target>
+</project>
+
+

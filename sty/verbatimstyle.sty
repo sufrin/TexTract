@@ -1,0 +1,16 @@
+\ProvidesPackage{verbatimstyle}
+\RequirePackage{verbatim}
+%
+%
+%
+\def\verbatim@font{\verbatim@@font\verbatim@@family\verbatim@@size\let\do\do@noligs\verbatim@nolig@list}
+\global\let\verbatim@@font=\normalfont
+\global\let\verbatim@@family=\ttfamily
+\global\let\verbatim@@size=\normalsize
+%
+% User interface
+%
+\newcommand{\verbatimfont}[1]{\global\def\verbatim@@font{#1}}
+\newcommand{\verbatimfamily}[1]{\global\def\verbatim@@family{#1}}
+\newcommand{\verbatimsize}[1]{\global\def\verbatim@@size{#1}}
+

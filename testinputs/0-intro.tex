@@ -1,0 +1,2175 @@
+\documentclass{concdistfoils}
+\SVN    $Id: 0-intro.tex 11 2008-04-03 19:51:21Z sufrin $
+\topic[0]{Introduction}
+
+\def\heading#1{\begin{cframed}[8.8in]{#1}\end{cframed}}
+
+\begin{document}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{section}{Reading}
+\begin{slide}
+\heading {Reading}
+
+\begin{itemize}
+\item Course notes
+
+\item  (Background) \textsl{Concurrent Programming in Java: Design Principles and Patterns}
+        \\(2nd Edition) Doug Lea. Sun Microsystems. \label{LEA}
+
+
+\item (Background) \textsl{Distributed Systems: Concepts and Design}
+           \\G. Coulouris, J. Dollimore, T. KindbergAcco. \label{COU}
+                Addison-Wesley.
+
+\item   (Background) \textsl{Distributed Systems: Principles and Practice.}
+        \\A.S. Tanenbaum, M. van Steen. Prentice-Hall. 2003. \label{TAN}
+
+\end{itemize}
+
+\vfill
+
+\heading{Acknowledgement}
+
+I am grateful to Peter Welch (\texttt{phw@ukc.ac.uk}) for permission to
+adapt some of his teaching materials for an earlier version of this
+course. 
+
+\end{slide}
+\end{section}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{section}{Real-World Concurrency}
+\begin{slide}
+\heading{Real-World Concurrency}
+
+\begin{itemize}
+\item Lots of independent agents interacting with each other
+\item Agents manifest themselves at lots of different scales
+\item Interactions are sometimes regular, sometimes chaotic
+\item Interaction ``mechanisms'' may be physical or logical
+
+\end{itemize}
+\vfill
+\begin{center}
+\pdffig[width=9in]{IMAGES/nature}
+\end{center}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Concurrent program organization is useful in many situations, including
+\begin{itemize}
+\item Programs that deal with concurrent real-world effects
+\item Programs that simulate multiple autonomous physical objects are easier to write
+\item Programs with GUIs that must stay responsive
+\item Reactive programs: (web-servers, real-time controllers) -- for reduced latency
+\item Compute-bound programs can benefit from multiple processors
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Most modern programming languages offer low-level machinery to support concurrent programming
+\vfill
+\item The principal points made by the course as a whole will be:
+\begin{itemize}
+\item Low-level concurrent programming is \textit{hard}: subtle mistakes are easy to make
+\item To avoid these it is \textit{essential} to use ``higher-level'' 
+      concurrent design patterns 
+\end{itemize}
+\vfill
+\item In this first section we 
+\begin{itemize}
+\item introduce some (typical) modern low-level machinery provided by Java
+\item illustrate some of the fundamental concepts and problems 
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{Concurrency in Computer Systems}
+\vfill
+\begin{itemize}
+\item The concurrent (simultaneous) execution of multiple interacting computational \textit{tasks}
+\begin{itemize}
+\item that are implemented as separate programs, or as  ``threads of control'' within a single program
+\item that execute on a single processor, several close-coupled processors, or 
+      are distributed across a network
+\end{itemize}
+\vfill
+\item Key concerns:
+\begin{itemize}
+\item Correct sequencing of the interactions or communications between tasks
+\item Coordination of access by tasks to resources that they share  
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+
+\begin{itemize}
+\item Concrete example of ``concurrency'' in a computer system
+\begin{itemize}
+\item A web browser may seem to be doing all these tasks at once
+\begin{itemize}
+\item Performing an HTTP GET to get a web page \\(interacting with the server and the local filestore)
+\item Playing an audio clip \\(interacting with the audio subsystem)
+\item Displaying an indication of the proportion of the web page source received \\(interacting with the video subsystem)
+\end{itemize}
+
+\item On some systems they may \textit{really} be happening simultaneously
+\item On others the time of a processor is shared between tasks to give this appearance
+\end{itemize}
+\end{itemize}
+\end{slide}
+\end{section}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{section}{Abstract Model}
+\begin{slide}
+\begin{itemize}
+\item Abstract Model
+\vfill
+\begin{itemize}
+\item Atomic Action:
+        \\-- definition depends on the level of abstraction we are considering
+        \\-- easiest to think of at the level of a (virtual) machine instruction
+\vfill
+\item Sequential Program: 
+        \\-- ordered sequence of atomic actions affecting its own operand stack 
+        \\-- (and a possibly-shared store)
+\vfill
+\item Concurrent Program: 
+        \\-- two or more sequential programs whose atomic actions may be interleaved 
+        \\-- interleaving of independent atomic actions is not problematic
+        \\-- order of interleaving of non-independent atomic actions can be problematic
+\vfill
+\item Concurrent Programming boils down to:
+        \\-- ensuring that non-independent atomic actions don't happen in a wrong order
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+
+\begin{itemize}
+\item Example: \\
+        $x:=x+1$ in S1 concurrently with $x:=x+1$ in S2 can have 2 distinct effects
+\\[1.5ex]
+        $x:=x+1$ is implemented by the sequence of stack instructions 
+        \verb/LD x; LD 1; ADD; ST x/ 
+        
+\vfill
+\item Possible interleavings, starting with $x=x_0$, yield different values for $x$
+\begin{alltt}
+S1:     LD x; LD 1; ADD;  ST x; 
+S2:                             LD X; LD 1; ADD; ST x;   \((x==x\sb0+2)\)  
+\hrulefill
+S1:     LD x;       LD 1;             ADD; ST x; 
+S2:           LD X;       LD 1; ADD;             ST x;   \((x==x\sb0+1)\) 
+\hrulefill
+S1:                             LD x; LD 1; ADD;  ST x; 
+S2:     LD X; LD 1; ADD; ST x;                           \((x==x\sb0+2)\)  
+\end{alltt}
+\vfill
+\begin{smaller}
+\begin{itemize}
+\item The sequence \verb/LD x; LD 1; ADD; ST x/ ought to be executed
+      \textit{as if it were atomic}. 
+
+\item Such a sequence is called a \textit{critical section}.
+\item Critical sections appear at all levels of abstraction.
+\end{itemize}
+\end{smaller}
+\end{itemize}
+\end{slide}
+\end{section}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{section}{Programming Languages, Operating Systems, Processes and Threads}
+\begin{slide}
+\begin{itemize}
+\item Programming Languages and Operating Systems 
+\begin{itemize}
+\item provide mechanisms to support concurrent operation
+\item provide mechanisms to support disciplined inter-task interaction
+\item (should) provide proof methods to support reasoning about concurrent tasks
+\end{itemize}
+\vfill
+\item The \textit{implementation detail} doesn't matter: what's important is 
+\begin{itemize}
+\item conceptually distinct tasks can be programmed individually
+\item individual task implementations can (appear to) run simultaneously
+\item individual task implementations that share information can do so safely
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{Tasks are implemented as Processes and/or Threads}
+\vfill
+\begin{itemize}
+\item Threads
+\begin{itemize}
+\item A thread is a ``single locus of control'' + a stack + an address space
+\\ (all that's needed to run a single sequential program)
+\item Many threads can share a single address space
+\item Communicate with each other using shared-memory in a \textit{disciplined} way
+\item Low communication overheads: context switch between threads can be cheap
+\end{itemize}
+\vfill
+\item Processes
+\begin{itemize}
+\item Consists of one or more threads sharing an address space
+\item Communicate with each other by using operating-system calls
+\item High communication overheads: context switch between processes is expensive 
+\item Distinct processes have separate address spaces, protected from each other
+\end{itemize}
+\vfill
+\item Running tasks share CPU resources. 
+\item The OS or VM \textit{scheduler} has to organise this effectively.
+\end{itemize}
+\begin{note}
+Read \texttt{http://en.wikipedia.org/wiki/Multithreading} for more detail.
+\end{note}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item The scheduler's job is to find work for every available processor in the system
+\vfill
+\item It repeatedly
+\begin{itemize}
+\item Finds a runnable thread (or process)
+\item Runs that thread (or process) on an available processor until either
+\begin{itemize}
+        \item the thread has to wait for some activity 
+        \item the thread voluntarily yields the processor
+        \item the thread has run for a ``scheduling quantum'' of time
+\end{itemize}
+\end{itemize}
+\vfill
+\item Scheduler's implementation is shared between the OS and the language runtime
+\vfill
+\item Scheduling is nondeterministic
+\begin{itemize}
+\item When more than one process or thread is runnable the scheduler may choose 
+(depending on the details of its choice policy and its history) unpredictably 
+\vfill
+\item \textit{The concurrent programmer's task is to arrange that distinct sections of code 
+are not \textbf{simultaneously} runnable unless they are mutually independent.}
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{Threads in Java}
+\begin{note}
+A \textit{thread} is a ``lightweight'' process, that exists within
+the address space of a single (operating-system) process and has its
+own locus of control.\footnote{\textit{i.e.} program counter and call
+stack.} It shares the computational and memory resources available to
+the  process with all other threads  in the program. The Java Virtual
+Machine allows a java application to have multiple threads of execution
+running concurrently. Concurrent execution is (always) simulated on a
+single processor machine, and (usually, these days) implemented on a
+multiprocessor machine by sharing threads among more than one processor.
+
+In Java a thread is represented by an object of a subclass of the
+class \texttt{Thread}.  A \texttt{Thread t} is started by calling
+\texttt{t.start()}, whereupon the \texttt{void run()} method of the thread
+starts to run \texttt{as a separate thread}.  The call to \texttt{start()}
+returns immediately. The class \texttt{Proc}, defined later in these
+lectures, behaves in exactly the same way as a thread, but does not
+require the construction of a Thread until the moment it is started.
+
+Composing a program from concurrent threads involves arranging that
+different threads do not interfere destructively with each others' use
+of shared resources (safety), and that the program does not deadlock
+(liveness).
+
+In general these problems do not have trivial solutions, but there are
+a number of patterns of using the basic synchronization tools that Java
+provides that make it easier to reason about threaded progams.
+
+
+Our detailed discussion of tasks will use the medium of \textit{threads}
+as implemented in Java, although most observations we make about threads
+will be equally applicable to any form of task implementation.
+
+All modern operating systems implement tasks as \textit{processes}; many
+modern operating systems also provide support for the implementation of
+tasks as \textit{threads}.
+
+Processes are heavier-weight entities than threads because the context
+in which a process runs must include the details of the mapping of its
+address space onto the memory of the machine on which it is running.
+
+But process and threads share the need for scheduling (associating with
+a CPU when they are runnable and a CPU is available) and for disciplined
+communication with other tasks; and although the detailed considerations
+of their implementation might be somewhat different, the basic conceptual
+foundations are the same.
+\end{note}
+\begin{itemize}
+\item A $Thread()$ object represents a thread
+\item Its body is defined by its $run()$ method
+\item It is started using its $start()$ method
+\end{itemize}
+\vfill
+\begin{hideclass}{intro/example1}
+package intro;
+import java.util.Random;
+
+/**
+        In this example we construct and start three threads. Each thread
+        outputs the letters 'a' .. 'g' in sequence. The output routine
+        causes the thread that called it to yield control to another
+        thread (with probability 0.5).
+*/
+\end{hideclass}
+\begin{class}{}
+     public class example1
+     { // Creates and starts three independent threads
+\end{class}
+\begin{hideclass}{}
+       public static Random random = new Random();
+       public static void println(String s) 
+       { if (random.nextDouble()>0.5) Thread.yield(); System.out.println(s);
+       }
+\end{hideclass}
+\begin{class}{}  
+       public static void main(final String[] args)
+       { new Thread()
+         { public void run() { for (char c='a'; c<='g'; c++)  println(""+c); }
+         }.start();
+         new Thread()
+         { public void run() { for (char c='a'; c<='g'; c++) println("\t"+c); }
+         }.start();
+         new Thread()
+         { public void run() { for (char c='a'; c<='g'; c++) println("\t\t"+c); }
+         }.start();
+       }
+     }
+\end{class}
+\vfill
+
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+~~~~~~~~~~~~~Scheduling is nondeterministic: 3 different runs have 3 different traces
+\vfill
+\begin{smaller}
+\begin{center}
+\begin{tabular}{|c|c|c|}
+\quad
+\begin{minipage}{2.3in}
+\begin{verbatim}
+                a
+a
+        a
+                b
+b
+c
+d
+e
+f
+g
+        b
+        c
+        d
+        e
+                c
+        f
+        g
+                d
+                e
+                f
+                g
+\end{verbatim}
+\end{minipage}
+\quad
+\quad
+&
+\quad
+\quad
+\begin{minipage}{2.3in}
+\begin{verbatim}
+a
+b
+c
+        a
+        b
+                a
+d
+e
+f
+g
+        c
+        d
+        e
+        f
+        g
+                b
+                c
+                d
+                e
+                f
+                g
+\end{verbatim}
+\end{minipage}
+\quad
+\quad
+&
+\quad
+\quad
+\begin{minipage}{2.3in}
+\begin{verbatim}
+a
+        a
+                a
+                b
+b
+        b
+                c
+c
+        c
+        d
+                d
+d
+        e
+                e
+e
+f
+        f
+                f
+                g
+g
+        g
+\end{verbatim}
+\end{minipage}
+\end{tabular}
+\end{center}
+\end{smaller}
+\end{slide}
+\end{section}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\hfill\textbf{Scheduling is nondeterministic}\hfill
+\begin{hideclass}{intro/example2}
+package intro;
+import static java.lang.System.out;
+/**
+        In this example we construct four identical threads, each of
+        which increments a variable 10000000 times. When two threads
+        are running concurrently we cannot guarantee that the code
+        var.set(var.get()+1) will actually increment var by 1, because we
+        cannot guarantee that the whole command will run to completion
+        in one thread without another thread being scheduled to run in
+        its place.
+
+        To illustrate this, we first run two of the threads concurrently;
+        wait for them both to finish; then inspect the variable. The
+        answer is very likely to be less than 20000000.
+
+        Then we run two threads in sequence -- waiting for one to stop
+        before the next starts. The answer is invariably 20000000.
+*/
+\end{hideclass}
+\begin{note}
+        In this example we construct four identical threads, each of
+        which increments a variable 10000000 times. When two threads
+        are running concurrently we cannot guarantee that the code
+        \JAVA{var.set(var.get()+1)} will actually increment var by 1, because we
+        cannot guarantee that the whole command will run to completion
+        in one thread without another thread being scheduled to run in
+        its place.
+
+        To illustrate this, we first run two of the threads concurrently;
+        wait for them both to finish; then inspect the variable. The
+        answer is very likely to be less than 20000000.
+
+        Then we run two threads in sequence -- waiting for one to stop
+        before the next starts. The answer is invariably 20000000.
+\end{note}
+\begin{class}{}
+public class example2
+{int  val = 0;
+ int  get()            { return val; }
+ void set(int theVal)  { val = theVal;  }
+ 
+ public static void main(final String[] args) throws Exception
+ { for (int j=0; j<6; j++) 
+   { final example2 v = new example2();
+     Thread[] t = new Thread[4];
+     for (int i=0; i<4; i++) 
+      t[i] = new Thread()
+         { public void run() { for (int i=0;i<10000000;i++) v.set(v.get()+1); } };
+     
+     // Run two threads concurrently until termination, then output v's value
+     t[0].start(); t[1].start(); t[0].join(); t[1].join(); out.print(v.get()+"/");
+     
+     // Run two threads sequentially, then output v's value
+     v.set(0);
+     t[2].start(); t[2].join();  t[3].start(); t[3].join(); out.println(v.get());
+   }
+ }
+\end{class}
+\begin{hideclass}{}
+}
+\end{hideclass}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Some possible traces (event ordering depends on thread-scheduling)
+\vfill
+\begin{smaller}
+\begin{verbatim}
+   t[0]            t[1]                    val
+   -------------------------------------------             ATOMIC increments
+   get()                                   n
+   set(n+1)                                n+1
+                   get()                   n+1
+                   set(n+2)                n+2
+   -------------------------------------------             NON-ATOMIC increments  
+   get()                                   n
+                   get()                   n
+   set(n+1)        set(n+1)                n+1
+   -------------------------------------------             NON-ATOMIC increments
+   get()                                   n
+                   get()                   n
+   set(n+1)                                n+1
+   get()                                   n+1
+   set(n+2)                                n+2
+   get()                                   n+2
+   set(n+2)                                n+3
+                   set(n+1)                n+1 !
+   -------------------------------------------
+\end{verbatim}
+\end{smaller}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item As predicted the concurrent program generates results $<20000000$
+\begin{note}
+The $join()$ method of a thread waits until its $run()$ method has finished
+\end{note}
+\vfill
+
+\hfill
+\begin{minipage}{3.5in}
+Multiprocessor 
+\begin{verbatim}
+10250054/20000000
+ 9681266/20000000
+10121544/20000000
+ 7412641/20000000
+ 9821463/20000000
+10055341/20000000
+ 5983751/20000000
+ 9268474/20000000
+10116035/20000000
+10049025/20000000
+ 8970361/20000000
+ 5682028/20000000
+\end{verbatim}
+\end{minipage}
+\hfill
+\begin{minipage}{3.5in}
+Single processor
+\begin{verbatim}
+17588880/20000000
+17599166/20000000
+12806473/20000000
+18120678/20000000
+18109832/20000000
+17913296/20000000
+17569270/20000000
+17569437/20000000
+12394177/20000000
+18040876/20000000
+18131075/20000000
+18031721/20000000
+\end{verbatim}
+\end{minipage}
+\hfill
+\vfill 
+\item But! But! But! 
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item How can the multiprocessor machine yield answers less than 10000000?
+\begin{itemize}
+\item Multiprocessor machines may \textit{cache} variables
+\item The Java memory model permits copies of memory objects to be cached
+\item Java does not guarantee that the caches will be kept coherent 
+\item The single column trace for \JAVA{val} is not a true picture
+\begin{note}
+\begin{itemize}
+\item A \JAVA{volatile} field is \textit{flushed} from the cache after writing
+      and \textit{reloaded} from memory on reading
+\item The following adaptation of example 2 now functions in the same
+      (wrong) way on uniprocessor and multiprocessor machines.
+\begin{class}{intro/example2a}
+package intro;
+import static java.lang.System.out;
+\end{class}
+\begin{class}{}
+public class example2a 
+{volatile int val = 0;
+ int  get()            { return val; }
+ void set(int theVal)  { val = theVal;  }
+ 
+ public static void main(final String[] args) throws Exception
+ { for (int j=0; j<6; j++) 
+   { final example2a v = new example2a();
+     Thread[] t = new Thread[4];
+     for (int i=0; i<4; i++) 
+      t[i] = new Thread()
+         { public void run() { for (int i=0;i<10000000;i++) v.set(v.get()+1); } };
+     
+     // Run two threads concurrently until termination, then output v's value
+     t[0].start(); t[1].start(); t[0].join(); t[1].join(); out.print(v.get()+"/");
+     
+     // Run two threads sequentially, then output v's value
+     v.set(0);
+     t[2].start(); t[2].join();  t[3].start(); t[3].join(); out.println(v.get());
+   }
+ }
+}
+\end{class}
+\end{itemize}
+
+On a multiprocessor we see
+\begin{verbatim}
+10853836/20000000
+14680492/20000000
+11416644/20000000
+10928137/20000000
+10928094/20000000
+10928263/20000000
+\end{verbatim}
+\end{note}
+\end{itemize}
+\vfill
+\item Overall Diagnosis
+\begin{itemize}
+\item threads run at different rates depending on processor load, scheduler whim, ...
+\item undisciplined access to shared state leads to loss of atomicity
+\item lack of synchronization of replicas of shared state leads to loss of atomicity
+\end{itemize}
+\vfill
+\item The solution: introduce methods that support the programming of atomic actions
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{smaller}
+\begin{itemize}
+\item Undisciplined access to shared variables breaks invariants
+\begin{hideclass}{intro/example3}
+package intro;
+import static java.lang.System.out;
+\end{hideclass}
+\begin{class}{}
+public class example3
+{long val1 = 0, val2 = 0;
+ long get()        { return val1+val2; }
+ void incr()       { val1 = val1 + 1; val2 = val2 - 1; }
+ void decr()       { val1 = val1 - 1; val2 = val2 + 1; }
+ 
+ public static void main(final String[] args) throws Exception
+ { for (int j=0; j<6; j++) 
+   {final example3 var = new example3();
+    Thread[] t = 
+    { new Thread(){public void run(){ for(int i=0;i<10000000;i++) var.incr();}}
+    , new Thread(){public void run(){ for(int i=0;i<10000000;i++) var.decr();}}
+    };
+    // Run the threads concurrently
+    t[0].start();t[1].start();t[0].join();t[1].join();out.println(var.get());
+   }
+ }
+}
+\end{class}
+\item Six successive runs yield: 430455 801256 -8587641452 -4595662 74817 -2086609
+\end{itemize}
+\end{smaller}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Correctness Properties
+\begin{itemize}
+        \item Safety
+        \begin{itemize}
+          \item The system state will satisfy an (intended) invariant property after every ``action''
+          \item (in example 3 this might have been $var.val1+var.val2==0$)
+        \end{itemize}
+        \item Liveness
+        \begin{itemize}
+          \item The system as a whole eventually does something \textit{useful}
+          \begin{note}
+            A system can get into a state where it is live (some processes
+            are doing things), but not doing anything useful. 
+          \end{note}
+        \end{itemize}
+\end{itemize}
+\vfill
+\item Pragmatic Properties
+\begin{itemize}
+        \item Latency -- how long before requests start to get serviced
+        \item Throughput -- speed of servicing of requests once started
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{Thread States}
+
+\begin{center}
+\pdffig[width=7.5in]{IMAGES/threadstates}
+\vfill
+\begin{smaller}
+\begin{tabular}{|c|l|}\hline
+Transition&\multicolumn{1}{c|}{Cause}\\
+\hline
+start     &\texttt{thread.start()} invoked by program\\
+schedule  &a processor becomes available\\
+deschedule&the processor timeslice ends, or the thread invokes \texttt{yield()}\\
+block     &synchronization lock for some obj required by thread, but already in use elsewhere\\
+unblock   &synchronization lock for that obj released\\
+block     &\texttt{obj.wait()} invoked by thread when holding \texttt{obj} synchronization lock\\
+unblock   &\texttt{obj.notify()} invoked by thread\\
+\hline
+\end{tabular}
+\end{smaller}
+\end{center}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item In Java the synchronised methods of an object are atomic actions on that object
+\item No two synchronised methods of an object can be running at once
+\item Thus the methods of example4 maintain the invariant val1+val2==0
+\begin{note}
+Synchronized methods don't necessarily run atomically; but no two
+synchronized methods of the same object can be executing at the same time.
+\end{note}
+\begin{hideclass}{intro/example4}
+package intro;
+import static java.lang.System.out;
+\end{hideclass}
+\begin{class}{}
+public class example4
+{ long val1 = 0, val2 = 0;
+  synchronized long get()        { return val1+val2; }
+  synchronized void incr()       { val1 = val1 + 1; val2 = val2 - 1; }
+  synchronized void decr()       { val1 = val1 - 1; val2 = val2 + 1; }
+  
+  public static void main(final String[] args) throws Exception
+  { for (int j=0; j<6; j++) 
+    {final example4 var = new example4();
+     Thread[] t = 
+     { new Thread(){public void run(){ for(int i=0;i<10000000;i++) var.incr();}}
+     , new Thread(){public void run(){ for(int i=0;i<10000000;i++) var.decr();}}
+     };
+     ...
+\end{class}
+\begin{hideclass}{}
+     t[0].start();t[1].start();t[0].join();t[1].join();out.println(var.get());
+    }
+  }
+}
+\end{hideclass}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{Synchronization in Java}
+\vfill
+\begin{itemize}
+\item Mechanism: every object has exactly one lock; it can be held by at most one thread.
+\vfill
+\begin{itemize}
+\item Notation: \JAVA{synchronized (obj) \{ code; \}}
+\vfill
+\item Semantics
+\begin{enumerate}
+\item   block until no other thread holds \texttt{obj}'s lock
+\item   acquire \texttt{obj}'s lock
+\item   execute \texttt{code}
+\item   release \texttt{obj}'s lock
+\begin{note}
+Exceptional termination of \texttt{code} also causes the lock to be released, as
+do execution of \texttt{return} commands.
+\end{note}
+\end{enumerate}
+\vfill
+\end{itemize}
+\item Example: part of a put method for a thread-safe buffer
+\begin{java*}[frame={}]{}
+          synchronized (buffer) 
+          { buffer[rear] = data; 
+            rear=(rear+1)%buffer.length; 
+            size++; 
+          }
+\end{java*}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Convenience notation: within a class
+\begin{java}
+
+        synchronized type method(...) { code; } 
+\end{java}
+\item[] means
+\begin{java}
+
+        type method(...) { synchronized (this) { code; } }
+\end{java}
+\vfill
+\item So synchronized methods within an object exclude each other
+\begin{java}
+
+        synchronized void increment() { val = val + 1; }
+        synchronized void decrement() { val = val - 1; }
+\end{java}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Deadlock
+\begin{itemize}
+\item Naive efforts to ensure \textit{safety} with \textit{good throughput} can lead to \textit{deadlock}
+\item Example: 
+\begin{itemize}
+\item It makes sense for the methods of individual bank accounts to be synchronized.
+\item It makes sense for a process executing a transaction between accounts to synchronize on them both
+\begin{java}
+        Transaction extends Thread
+          int     amount
+          Account from, to
+          
+          void run() 
+          { synchronize (from)
+              synchronize (to) 
+              { if (from.withdraw(amount))
+                to.deposit(amount)
+              }
+          }         
+\end{java}
+\end{itemize}
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item To ensure good throughput it makes sense to run transactions concurrently
+\item But this exposes the system to deadlock
+\vfill
+
+For example: suppose these three transactions run at nearly the same time
+\begin{java}
+        transaction A: from account 1 to account 2
+        transaction B: from account 2 to account 3
+        transaction C: from account 3 to account 1
+\end{java}
+\vfill
+\item Solution?
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{Producers and Consumers}
+\vfill
+\begin{itemize}
+\item Producer-Consumer is a frequent pattern of concurrent organisation
+\item We use it below to explore various sound forms of inter-thread communication
+\item Typical example: file manager rendering thumbnail (scaled) images
+\begin{itemize}
+\item Images can be read from disk, scaled and displayed concurrently
+\begin{smaller}
+\begin{verbatim}
+   for each image
+       start a producer thread to output a scaled version to a consumer
+   set up GUI front end
+   for each image
+       input a scaled version of the image from producer
+       show it in the GUI
+\end{verbatim}
+\end{smaller}
+\end{itemize}
+\item Another example: Unix ``pipe'' organisation (a chain of processing stages)
+\begin{itemize}
+\item First stage reads from the input stream, and produces ``raw'' records
+\item Each stage consumes the output of the previous stage, 
+      processes it, and produces the input to the next stage
+\item Last stage consumes ``cooked'' records and writes them to the output stream
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{Decoupling Producers from Consumers by Buffers}
+\vfill
+\begin{itemize}
+\item A buffer acts as a first-in/first-out queue
+\begin{hideclass}{intro/Buf}
+package intro;
+\end{hideclass}
+\begin{class}{}
+  public interface Buf<T> { T get(); void put(T item); }
+\end{class}
+\vfill 
+\item Many different multi-thread implementations are feasible, including:
+\begin{itemize}
+\item ``busy-waiting''
+\item ``co-operative busy-waiting''
+\item ``wait-notify''
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Busy-wait buffer
+\vfill
+\begin{hideclass}{intro/bBuf}
+package intro;
+\end{hideclass}
+\begin{class}{}
+public class bBuf<Type> implements Buf<Type>
+{  volatile Type     obj   = null;
+   volatile boolean  empty = true;
+   volatile long     pwait = 0, gwait = 0;
+   
+   public void  put(Type obj) 
+   { while (!empty) pwait++;
+     this.obj = obj; empty = false;
+   }
+   
+   public Type get()         
+   { while (empty) gwait++;
+     Type res = obj; empty = true; return res; 
+   }
+\end{class}
+\begin{hideclass}{}
+   public String toString() 
+   { return String.format("bBuf(gwait=%d; pwait=%d)", gwait, pwait); }
+}
+\end{hideclass}
+\vfill
+\begin{smaller}
+\item Both $put$ and $get$ ``spin'' while waiting for the buffer state to change
+\item Waiting threads consume computational resources that could be used by others
+\item On a uniprocessor, producer and consumer compete with each other for compute power
+\item This machinery scales very badly across many intercommunicating threads
+\end{smaller}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Co-operative busy-wait buffer
+\vfill
+\begin{hideclass}{intro/yBuf}
+package intro;
+\end{hideclass}
+\begin{class}{}
+public class yBuf<Type> implements Buf<Type>
+{  Type    obj   = null;
+   boolean empty = true;
+   long    pwait = 0, gwait = 0;
+   
+   public void  put(Type obj) 
+   { while (!empty) { pwait++; Thread.yield(); }
+     synchronized (this) { this.obj = obj; empty = false; }
+   }
+   
+   public Type get()         
+   { while (empty) { gwait++; Thread.yield(); }
+     synchronized (this) { Type res = obj; empty = true; return res; }
+   }
+\end{class}
+\begin{hideclass}{}
+   public String toString() 
+   { return String.format("yBuf(gwait=%d; pwait=%d)", gwait, pwait); }   
+}
+\end{hideclass}
+\vfill
+\begin{smaller}
+\item Both $put$ and $get$  yield control every time the buffer state is not what's required
+\item This permits other threads to proceed (and, \textit{perhaps}, change the buffer state)
+\item But scheduling whims can mean many more ``unproductive'' entries to put/get than are needed
+ so this machinery doesn't scale well across many intercommunicating threads
+\end{smaller}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Wait/Notify buffer
+\begin{hideclass}{intro/wBuf}
+package intro;
+\end{hideclass}
+\begin{class}{}
+public class wBuf<Type> implements Buf<Type>
+{  Type    obj   = null;
+   boolean empty = true;
+   long pwait = 0, gwait = 0;  
+   
+   synchronized public void put(Type obj) 
+   { while (!empty) { pwait++; awaitStateChange(); }
+     this.obj = obj; empty = false;
+     notify(); 
+   }
+   
+   synchronized public Type get()  
+   { while (empty) { gwait++; awaitStateChange(); }
+     Type res = obj; empty = true;
+     notify(); 
+     return res; 
+   }
+   
+   void awaitStateChange() 
+   { try { wait(); } catch (InterruptedException ex) {} }
+\end{class}
+\begin{hideclass}{}
+   public String toString() 
+   { return String.format("wBuf(gwait=%d; pwait=%d)", gwait, pwait); }
+}
+\end{hideclass}
+\begin{note}
+Here's what the Java documentation for \texttt{Object.wait(long timeout)} says:
+\begin{quote} \it
+Causes current thread to wait until either another thread invokes the
+\texttt{notify()} method or the \texttt{notifyAll()} method for this object,
+or a specified amount of time has elapsed.
+
+The current thread must own this object's [lock].
+
+This method causes the current thread (call it T) to place itself in the wait set for this object and then to relinquish any and all synchronization claims on this object. Thread T becomes disabled for thread scheduling purposes and lies dormant until one of four things happens:
+
+\begin{itemize}
+    \item Some other thread invokes the notify method for this
+          object and thread T happens to be arbitrarily chosen as
+          the thread to be awakened.
+    \item Some other thread invokes the notifyAll method for this object.
+    \item Some other thread interrupts thread T.
+    \item The specified (in milliseconds) amount of real time has
+          elapsed, more or less.  If timeout is zero, however, then real
+          time is not taken into consideration and the thread simply
+          waits until notified.
+\end{itemize} 
+
+The thread T is then removed from the wait set for this object and
+re-enabled for thread scheduling. It then competes in the usual
+manner with other threads for the right to synchronize on the object;
+once it has gained control of the object, all its synchronization
+claims on the object are restored to the status quo ante - that is,
+to the situation as of the time that the wait method was invoked.
+Thread T then returns from the invocation of the wait method. Thus,
+on return from the wait method, the synchronization state of the
+object and of thread T is exactly as it was when the wait method
+was invoked.
+
+A thread can also wake up without being notified, interrupted, or
+timing out, a so-called spurious wakeup. While this will rarely
+occur in practice, applications must guard against it by testing
+for the condition that should have caused the thread to be awakened,
+and continuing to wait if the condition is not satisfied. In other
+words, waits should always occur in loops, like this one:
+
+\begin{verbatim}
+     synchronized (obj) 
+     {
+         while (<condition does not hold>) obj.wait(timeout);
+         // assertion: <condition holds>
+         ... // Perform action appropriate to condition
+     }
+\end{verbatim}
+\end{quote}
+
+And here's what the documentation for \texttt{Object.notify()} says:
+\begin{quote} \it
+Wakes up a single thread that is waiting on this object's [lock]. If
+any threads are waiting on this object, one of them is chosen to be
+awakened. The choice is arbitrary and occurs at the discretion of the
+implementation. A thread waits on an object's [lock] by calling one of
+the wait methods.
+
+The awakened thread will not be able to proceed until the current thread
+relinquishes the lock on this object. The awakened thread will compete in
+the usual manner with any other threads that might be actively competing
+to synchronize on this object; for example, the awakened thread enjoys
+no reliable privilege or disadvantage in being the next thread to lock
+this object.
+
+This method should only be called by a thread that is the owner of this
+object's [lock]. A thread becomes the owner of the object's [lock] in
+one of three ways:
+
+\begin{itemize}
+    \item By executing a synchronized instance method of that object.
+    \item By executing the body of a synchronized statement that synchronizes on the object.
+    \item For objects of type Class, by executing a synchronized static method of that class. 
+\end{itemize}
+Only one thread at a time can own an object's [lock]. 
+\end{quote}
+
+\end{note}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Within a \texttt{synchronized ($obj$) \{...\}} block:
+\begin{itemize}
+\item \verb/wait()/ 
+\begin{itemize}
+\item causes the lock on $obj$ to be given up by the running thread
+\item causes the running thread to be blocked (awaiting the lock for $obj$)
+\end{itemize}
+\vfill
+\item $obj$.\verb/notify()/ 
+\begin{itemize}
+\item causes $one$ of the (other) threads awaiting the lock for $obj$ to become runnable
+\end{itemize}
+\vfill
+\item $obj$.\verb/notifyAll()/ 
+\begin{itemize}
+\item causes $all$ of the (other) threads awaiting the lock for $obj$ to become runnable
+\end{itemize}
+\end{itemize}
+\vfill
+\item BUT the scheduler merely chooses among runnable threads. So:
+\begin{itemize}
+\item A notification may or may not result in the notifying thread being descheduled.
+\item A notification may or may not result in the notified thread being scheduled.
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Empirical evaluation: time the generation and transmission of numbers 
+     (\texttt{example5}) using different buffer implementations
+
+\begin{hideclass}{intro/example5}
+package intro;
+@SuppressWarnings("unchecked")
+public class example5
+{ 
+\end{hideclass}
+\begin{class}{}
+  public static void main(final String[] args) throws Exception
+  { final Buf<Long> [] bufs = new Buf[]
+    { new wBuf<Long>(), // wait-notify
+      new yBuf<Long>(), // yield
+      new bBuf<Long>()  // busy-wait
+    };
+    for (Buf<Long> buf: bufs)
+    { Thread  cons = new Consumer(buf);
+      Thread  prod = new Producer(buf);
+      long time = System.currentTimeMillis();
+      cons.start(); prod.start(); cons.join(); prod.join(); 
+      time=System.currentTimeMillis()-time;
+      System.out.printf("Time for %s is %d.%03d%n", buf, time/1000, time%1000);
+    }
+  }  
+}
+\end{class}
+\end{itemize}
+\begin{note}
+Empirical investigation of generating and transmitting 200 numbers
+from producer to consumer (with producer and consumer I/O commented out).
+
+\begin{smaller}
+\begin{verbatim}
+(A fast uniprocessor)
+1674 $ ssh mercury.comlab.ox.ac.uk 'for x in a b c; do java intro.example5; done'
+Time for wBuf(gwait=190; pwait=17) is 0.021
+Time for yBuf(gwait=1862; pwait=53) is 0.007
+Time for bBuf(gwait=26507; pwait=2020) is 0.004
+
+Time for wBuf(gwait=191; pwait=13) is 0.021
+Time for yBuf(gwait=2098; pwait=759) is 0.006
+Time for bBuf(gwait=25282; pwait=2206) is 0.005
+
+Time for wBuf(gwait=193; pwait=13) is 0.022
+Time for yBuf(gwait=2109; pwait=774) is 0.007
+Time for bBuf(gwait=26090; pwait=1977) is 0.005
+\end{verbatim}
+
+\begin{verbatim}
+(A slowish uniprocessor)
+1675 $ ssh jape.comlab.ox.ac.uk 'for x in a b c; do java intro.example5; done'
+Time for wBuf(gwait=201; pwait=0) is 0.030
+Time for yBuf(gwait=201; pwait=200) is 0.009
+Time for bBuf(gwait=17940; pwait=8657) is 0.014
+
+Time for wBuf(gwait=201; pwait=0) is 0.030
+Time for yBuf(gwait=224; pwait=194) is 0.009
+Time for bBuf(gwait=15967; pwait=70) is 0.010
+
+Time for wBuf(gwait=201; pwait=0) is 0.030
+Time for yBuf(gwait=201; pwait=200) is 0.009
+Time for bBuf(gwait=14488; pwait=2990) is 0.011
+\end{verbatim}
+
+\begin{verbatim}
+(A fast, lightly-loaded, multiprocessor)
+1676 $ ssh agonistes.worc 'for x in a b c; do (java intro.example5); done' 
+Time for wBuf(gwait=178; pwait=22) is 0.003
+Time for yBuf(gwait=418; pwait=125) is 0.002
+Time for bBuf(gwait=11669; pwait=4262) is 0.001
+
+Time for wBuf(gwait=197; pwait=123) is 0.004
+Time for yBuf(gwait=340; pwait=119) is 0.002
+Time for bBuf(gwait=14148; pwait=7093) is 0.001
+
+Time for wBuf(gwait=193; pwait=117) is 0.004
+Time for yBuf(gwait=340; pwait=120) is 0.001
+Time for bBuf(gwait=11498; pwait=4800) is 0.001
+\end{verbatim}
+\end{smaller}
+Observations:
+\begin{enumerate}
+\item On all machines wait/notify wastes the least work, and 
+      ``co-operative yielding'' wastes less work than busy-wait.
+      
+\item On all machines, the elapsed time for busy-wait is consistently lower
+      than for the others, and co-operative yielding  is faster than
+      wait/notify.  
+\end{enumerate}
+
+Explanations:
+\begin{enumerate}
+\item Busy-waiting is aptly named! Co-operative yielding  doesn't prevent the
+      scheduler making ``unfortunate'' re-scheduling decisions after a yield. 
+      Wait-notify
+      results in the scheduler making just the right re-scheduling decisions.
+\item Wait-notify forces entry to the
+      (Thread) scheduler, and on modern java implementations this
+      forces entry to the operating system. Co-operative
+      yielding looks like it can be implemented within the
+      Java virtual machine. What is surprising here is
+      that the time premium for entry to the operating system
+      appears to be so small!
+\end{enumerate}
+\end{note}
+\end{slide}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+
+\vfill
+
+\item Producer repeatedly (and laboriously) generates numbers and places them in a buffer
+\begin{hideclass}{intro/Producer}
+package intro;
+\end{hideclass}
+\begin{class}{}
+public class Producer extends Thread
+{ Buf<Long> toConsumer;
+  public Producer(Buf<Long> toConsumer) { this.toConsumer = toConsumer; }
+  public void run() 
+  { for (int n=0; n<200; n++)
+    { long f = 0; 
+      for (int i=0; i<n; i++) f=f+i;
+      //System.out.printf("P -> (%d)%d%n", n, f);
+      toConsumer.put(f);
+    }
+    toConsumer.put(null);
+  }
+}
+\end{class}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Consumer repeatedly acquires numbers from a buffer and prints them
+
+\vfill
+\begin{hideclass}{intro/Consumer}
+package intro;
+\end{hideclass}
+\begin{class}{}
+public class Consumer extends Thread
+{ Buf<Long> fromProducer;
+  public Consumer(Buf<Long> fromProducer) { this.fromProducer = fromProducer; }
+  public void run() 
+  { Long item=null; 
+    do 
+    { item=fromProducer.get(); 
+      //System.out.printf("C <- %s%n", item);
+    } while (item!=null); 
+  }
+}
+\end{class}
+\end{itemize}
+\end{slide}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{Comparison of block-deschedule-reschedule methods}
+\vfill
+\begin{itemize}
+\item Co-operative \texttt{yield}  buffer implementation
+\begin{itemize}
+\item Guards buffer-manipulation section with a predicate
+\item Descheduled but not blocked by \texttt{yield} when in the wrong state 
+\item Rescheduled at the whim of the scheduler
+\item \textit{Must} re-evaluate the guard post-yield
+\end{itemize}
+\vfill
+\item Wait/Notify buffer implementation
+\begin{itemize}
+\item Guards buffer-manipulation section with a predicate
+\item Blocked voluntarily by \texttt{wait} when in the wrong state 
+\item Unblocked (and perhaps rescheduled) by \texttt{notify} only when state changes
+\item Re-evaluation of guard post-wait should always succeed
+\begin{note}
+So why is the manipulation programmed as: 
+
+\begin{verbatim}
+        while (!guard) { wait(); } 
+        ... manipulate ...
+\end{verbatim}
+rather than
+\begin{verbatim}
+        if (!guard) { wait(); } 
+        ... manipulate ...
+\end{verbatim}
+
+The simplest explanation is that this is a form of defensive programming
+that \textit{guarantees locally} that the guard is true as the manipulation begins; 
+whereas the simple conditional evaluation of the guard demands that
+\textit{every} piece of code that calls \textit{notify} must ensure that
+the guard holds before it is called. 
+
+Since it is impossible to prevent the public method \texttt{notify}
+being called from \textit{any} thread that happens to hold the object
+it makes sense to program defensively.
+
+Finally, there seems to be consensus among thread implementers that (at least on some
+architectures)  it is extremely hard to implement wait/notify in such
+a way that there it can be guaranteed that the termination of a wait
+is not caused by a spurious scheduling event. 
+\end{note}
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\hfill\textbf{Multi-place buffers}\hfill
+\begin{hideclass}{intro/mBuf}
+package intro;
+\end{hideclass}
+\vfill
+\begin{class}{}
+public class mBuf<Type> implements Buf<Type>
+{  Object[]  objects = new Object[20];
+   int  count, front, rear;
+   long pwait = 0, gwait = 0;  
+   
+   synchronized public void put(Type obj) 
+   { while (count==20) { pwait++; awaitStateChange(); }
+     objects[rear] = obj; rear = (rear+1) % 20; count++;
+     notify(); 
+   }
+   
+   @SuppressWarnings("unchecked") synchronized public Type get()  
+   { while (count==0) { gwait++; awaitStateChange(); }
+     Type res = (Type) objects[front]; front = (front+1) % 20; count--;
+     notify(); 
+     return res; 
+   }
+   
+   void awaitStateChange() 
+   { try { wait(); } catch (InterruptedException ex) {} }
+\end{class}
+\begin{hideclass}{}
+   public String toString() 
+   { return String.format("mBuf(gwait=%d; pwait=%d)", gwait, pwait); }
+}
+\end{hideclass}
+\end{slide}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{Notify and NotifyAll}
+\vfill
+\begin{itemize}
+\item Only use \texttt{obj.notify()} when \textit{all} waiting threads can make overall progress
+\item \texttt{obj.notify()} awakens just \textit{one} waiting thread
+\vfill
+\item Deadlock scenarios with a shared buffer using \texttt{notify()}
+\begin{itemize}
+\item Example: several producers, one consumer, shared one-place buffer
+\begin{itemize}
+\item[] 
+      (several producers waiting on non-full)\\
+      consumer consumes then waits on nonempty;\\ 
+      producer 1 produces (buffer now full) and calls \texttt{notify()}; \\
+      producer 2 (waiting on non-full) is notified; \\
+      producer 2 re-waits; \\
+      deadlock
+\end{itemize}
+\item Similarly: several consumers, one producer, shared buffer
+\item Similarly: several consumers, several producers, shared buffer
+\end{itemize}
+\vfill
+\item Use \texttt{obj.notifyAll()} when some waiting threads may not make overall progress
+\item \texttt{obj.notifyAll()} awakens \textit{all} waiting threads
+ -- this is usually less efficient
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Case study: point-to-point \textit{vs} shared communication through a buffer
+\vfill
+\begin{itemize}
+\item Each of the $n$ producer threads generates $50$ numbers and sends them via $buf$
+\vfill
+\begin{hideclass}{intro/example6}
+package intro;
+import java.util.*;
+public class example6 
+{
+\end{hideclass}
+\begin{class}{}
+  public static void main(String[] arg) throws Exception
+  { final Buf<Integer> buf=arg.length==0 ? new wBuf<Integer>()
+                                         : new sBuf<Integer>();
+    final int         n = 6;
+    final Thread[] prod = new Thread[n];
+    
+    for (int p=0; p<prod.length; p++) 
+    { final int pid = p*100;
+      prod[p] = new Thread("prod"+p)
+      { public void run()
+        { for (int i = 0; i<50; i++)
+          { buf.put(pid+i); 
+            for (int j=0;j<10000;j++); // pretend to do a lot of work
+          } 
+        }
+      };
+    }
+\end{class}
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item[]
+\begin{itemize}
+\item The consumer process reads $50*n$ numbers from $buf$.
+\begin{class}{}
+    Thread consumer = new Thread("consumer")
+    { public void run()
+      { for (int i = 0; i<n*50; i++) 
+        {  if (i%10==0) System.out.println();
+           System.out.printf("%02d<-%03d ", i, buf.get());
+        }
+      }
+    };
+    for (int i=0; i<prod.length; i++) prod[i].start();
+    consumer.start();
+    consumer.join();    
+    System.err.println(buf);
+  }
+\end{class}
+\begin{hideclass}{}
+}
+\end{hideclass}
+\vfill
+\item When using $wBuf$, which notifies with \texttt{notify()}, this (usually) deadlocks after 
+\item[]  trace: ... consumer waits; $prod_i$ produces; $prod_j$ is notified $(j\not= i$)
+\begin{note}
+Extract from thread dump at deadlock (generated on Linux/Unix machines by control-backslash) is:
+\begin{verbatim}
+"consumer" 
+        at java.lang.Object.wait(Native Method)
+        - waiting on <0x265e8330> (a wBuf)
+        at java.lang.Object.wait(Object.java)
+        at wBuf.awaitStateChange(wBuf.java)
+        at wBuf.get(wBuf.java)
+        - locked <0x265e8330> (a wBuf)
+        at example6$2.run(example6.java)
+
+"prod5" 
+        at java.lang.Object.wait(Native Method)
+        - waiting on <0x265e8330> (a wBuf)
+        at java.lang.Object.wait
+        at wBuf.awaitStateChange
+        at wBuf.put
+        - locked <0x265e8330> (a wBuf)
+        at example6$1.run
+
+"prod4" 
+        at java.lang.Object.wait(Native Method)
+        - waiting on <0x265e8330> (a wBuf)
+        at java.lang.Object.wait
+        at wBuf.awaitStateChange
+        at wBuf.put
+        - locked <0x265e8330> (a wBuf)
+        at example6$1.run
+
+"prod3" 
+        at java.lang.Object.wait(Native Method)
+        - waiting on <0x265e8330> (a wBuf)
+        at java.lang.Object.wait
+        at wBuf.awaitStateChange
+        at wBuf.put
+        - locked <0x265e8330> (a wBuf)
+        at example6$1.run
+
+"prod2" 
+        at java.lang.Object.wait(Native Method)
+        - waiting on <0x265e8330> (a wBuf)
+        at java.lang.Object.wait
+        at wBuf.awaitStateChange
+        at wBuf.put
+        - locked <0x265e8330> (a wBuf)
+        at example6$1.run
+
+"prod1" 
+        at java.lang.Object.wait(Native Method)
+        - waiting on <0x265e8330> (a wBuf)
+        at java.lang.Object.wait
+        at wBuf.awaitStateChange
+        at wBuf.put
+        - locked <0x265e8330> (a wBuf)
+        at example6$1.run
+
+"prod0" 
+        at java.lang.Object.wait(Native Method)
+        - waiting on <0x265e8330> (a wBuf)
+        at java.lang.Object.wait
+        at wBuf.awaitStateChange
+        at wBuf.put
+        - locked <0x265e8330> (a wBuf)
+        at example6$1.run
+\end{verbatim}
+\end{note}
+\vfill
+\item When using $sBuf$, which notifies with \texttt{notifyAll()}, it never deadlocks
+\end{itemize}
+\end{itemize}
+\begin{note}
+The following class defines a \textit{shared} buffer that can be used (at either end)
+by any number of threads. It is identical to $wBuf$ except that \texttt{notifyAll()}
+is used where $wBuf$ would use $notify()$.
+\begin{hideclass}{intro/sBuf}
+package intro;
+\end{hideclass}
+\begin{class}{}
+public class sBuf<Type> implements Buf<Type>
+{  Type    obj   = null;
+   boolean empty = true;
+   long pwait = 0, gwait = 0;  
+   
+   synchronized public void put(Type obj) 
+   { while (!empty) { pwait++; awaitStateChange(); }
+     this.obj = obj; empty = false;
+     notifyAll(); 
+   }
+   
+   synchronized public Type get()  
+   { while (empty) { gwait++; awaitStateChange(); }
+     Type res = obj; empty = true;
+     notifyAll(); 
+     return res; 
+   }
+   
+   void awaitStateChange() 
+   { try { wait(); } catch (InterruptedException ex) {} }
+
+   public String toString() 
+   { return String.format("dBuf(gwait=%d; pwait=%d)", gwait, pwait); }
+}
+\end{class}
+\end{note}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Lessons:
+\begin{itemize}
+\item Point-to-point communication with a buffer can be very simple
+\item Shared communication with a buffer requires more complex infrastructure
+\end{itemize}
+\vfill
+\item Further efficiency steps for shared communication:
+\begin{itemize}
+\item Use seperate waiting-sets for producers and consumers
+\item When buffer becomes non-full, notify all waiting PRODUCERS
+\item When buffer becomes non-empty, notify all waiting CONSUMERS
+\end{itemize}
+\end{itemize}
+\vfill
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{Semaphores}
+\vfill
+
+\begin{itemize}
+\item Semaphores support bounded numbers of entries to a critical section
+\item Protocol for use is: \texttt{sema.acquire(); ...; sema.release()}
+\vfill
+\begin{hideclass}{intro/Semaphore}
+package intro;
+\end{hideclass}
+\begin{class}{}
+public class Semaphore
+{ int permits;
+  public Semaphore(int permits) { this.permits=permits; }
+  
+  synchronized public void acquire()
+  { while (permits==0) try { wait(); } catch (InterruptedException ex) {};
+    permits--;
+  }
+  
+  synchronized public void release() { permits++; notify(); }
+  
+  synchronized public int getCount() { return permits; }
+}
+\end{class}
+\vfill
+\item This implementation assumes all acquiring threads behave uniformly
+\item It notifies just one waiting thread when a permit becomes available
+\end{itemize}
+
+\end{slide}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item A many-to-many buffer implemented with Semaphores
+\begin{smaller}
+\begin{itemize}
+\item \texttt{producers} counts the number of slots left in the buffer
+\item \texttt{consumers} counts the number of filled slots in the buffer
+\item Invariant: \texttt{producers.getCount()+consumers.getCount() = buf.length}
+\end{itemize}
+\end{smaller}
+\vfill
+\begin{hideclass}{intro/mmBuf}
+package intro;
+\end{hideclass}
+\begin{class}{}
+public class mmBuf<Type> implements Buf<Type>
+{  Object[]  buf;
+   int       front, rear;               // 0 <= front, rear < buf.length
+   Semaphore producers, consumers;  
+     
+   public mmBuf(int size)
+   { buf       = new Object[size];
+     producers = new Semaphore(size);
+     consumers = new Semaphore(0);
+     front = rear = 0; }
+   
+   public void put(Type obj) 
+   { producers.acquire();
+     synchronized (this) { buf[rear]=obj; rear=(rear+1)%buf.length; }
+     consumers.release(); }
+\end{class}
+\end{itemize}
+
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+
+\begin{class}{}
+   
+   @SuppressWarnings("unchecked")
+   public Type get()  
+   { Type res;
+     consumers.acquire();   
+     synchronized (this) { res=(Type)buf[front]; front=(front+1)%buf.length; }
+     producers.release();
+     return res; 
+   }
+
+   public String toString()  
+   { return String.format("mmBuf(%d)@%d", buf.length, producers.getCount()); }
+}
+\end{class}
+\begin{itemize}
+\item \texttt{put} acquires a producer permit and releases a consumer permit
+\item \texttt{get} acquires a consumer permit and releases a producer permit
+\item Assumption: producers always write to the buffer; consumers always read from the buffer
+\begin{itemize}
+\item When a producer permit is released, a single producer is notified
+\item When a consumer permit is released, a single consumer is notified
+\end{itemize}
+\end{itemize}
+
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item An empirical test of \texttt{mmBuf}
+\item $n$-producers, $m$-consumers sharing a many-to-many buffer
+\vfill
+\begin{class}{intro/example7}
+package intro;
+public class example7 
+{
+  public static void main(String[] arg) throws Exception
+  { final int bufSize = arg.length<1  ? 1 : Integer.parseInt(arg[0]);
+    final int nProds  = arg.length<2  ? 1 : Integer.parseInt(arg[1]);
+    final int nCons   = arg.length<3  ? 1 : Integer.parseInt(arg[2]);
+
+    final Buf<Integer> buf   = new mmBuf<Integer> (bufSize);
+
+    final Latch 
+          start     = new Latch(1),
+          running   = new Latch(nProds+nCons), // processes still runnable
+          remaining = new Latch(nProds*50);    // numbers unconsumed
+\end{class}
+\vfill
+\item[]
+
+\begin{itemize}
+\item Latches support ``conjunctive waiting''
+\item When clients of a \texttt{Latch(n)} wait, they are suspended until it has been decremented $n$ times.
+\end{itemize}
+
+\end{itemize}
+\end{slide}
+    
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Start producer threads, each of which
+\begin{itemize}
+\item Waits for the  \texttt{start} latch
+\item Generates and writes 50 numbers
+\item Decrements the \texttt{running} latch
+\end{itemize}
+\vfill
+\begin{class}{}    
+    for (int p=0; p<nProds; p++) 
+    { final int pid = p*100;
+      new Thread("prod"+p)
+      { public void run()
+        { start.await();                 // await the starting latch        
+          for (int i = 0; i<50; i++)
+          { buf.put(pid+i); 
+            for (int j=0;j<1000000;j++); // work
+          } 
+          running.countDown();
+        }
+      }.start();
+    }
+\end{class}
+\end{itemize}
+\end{slide}
+
+\begin{slide}
+\begin{itemize}
+\item Start up consumer threads, each of which
+\begin{itemize}
+\item Waits for the  \texttt{start} latch
+\item Reads numbers from the buffer until there can be no more remaining numbers
+\item Decrements the \texttt{running} latch
+\end{itemize}
+\vfill
+\begin{class}{}
+    for (int p=0; p<nCons; p++) 
+    { final int pid = p;
+      new Thread("con"+p)
+      { public void run()
+        { start.await();                    // await the starting latch
+          while (remaining.countDown()!=0) 
+          {  System.out.printf("%02d<-%03d ", pid, buf.get());
+             for (int j=0;j<1000000;j++);  // work
+          }
+          running.countDown();
+        }
+      }.start();
+    }
+\end{class}
+\end{itemize}
+\end{slide}
+
+\begin{slide}
+\begin{itemize}
+\item Decrement the ready-to-start latch, restarting all the producers and the consumers
+\begin{class}{}
+
+    System.err.printf("%d producers; %d consumers; buffer size %d%n", 
+                      nProds, nCons, bufSize);
+    start.countDown(); 
+\end{class}
+\vfill
+\item Await the \texttt{running} latch 
+\begin{class}{}
+
+    running.await(); 
+\end{class}
+\item All producers and consumers have now finished
+\begin{class}{}
+      
+  } // main
+} //example7
+\end{class}
+\end{itemize}
+\begin{note}
+Here's an example of the empirical test running
+\begin{verbatim}
+9 producers; 19 consumers; buffer size 60
+00<-000 00<-001 00<-002 00<-003 00<-004 00<-005 00<-006 00<-007 00<-008 00<-009
+00<-010 00<-011 00<-012 00<-013 02<-014 02<-015 02<-016 02<-017 01<-024 01<-033
+01<-034 01<-035 16<-032 16<-037 16<-038 16<-043 16<-044 16<-045 16<-046 16<-047
+16<-048 16<-049 16<-100 16<-101 16<-102 16<-103 16<-104 16<-105 16<-106 16<-107
+16<-108 16<-109 16<-110 16<-300 16<-400 16<-500 16<-200 16<-600 16<-700 16<-800
+16<-111 16<-301 16<-401 16<-201 16<-601 16<-701 16<-801 16<-112 16<-302 16<-402
+16<-501 16<-502 16<-503 16<-504 16<-505 16<-202 16<-203 16<-204 16<-205 16<-206
+16<-207 16<-208 16<-209 16<-210 16<-211 16<-212 16<-213 16<-214 16<-215 16<-216
+16<-217 16<-218 16<-602 16<-702 16<-802 16<-113 16<-303 16<-403 16<-506 16<-219
+16<-603 16<-703 16<-803 16<-114 16<-304 16<-404 16<-507 16<-220 16<-604 16<-704
+16<-804 16<-115 16<-305 16<-405 16<-508 16<-221 16<-605 16<-705 16<-805 16<-116
+16<-306 16<-406 16<-509 16<-222 16<-606 16<-706 16<-806 16<-117 16<-307 16<-407
+16<-510 16<-223 16<-607 16<-707 16<-807 16<-118 16<-308 16<-408 16<-511 16<-224
+16<-608 16<-708 16<-808 16<-119 16<-309 16<-409 16<-512 16<-225 16<-609 16<-709
+16<-809 16<-120 16<-310 16<-410 16<-513 16<-226 16<-610 16<-710 16<-810 16<-121
+16<-311 16<-411 16<-514 16<-227 16<-611 16<-711 16<-811 16<-122 16<-312 16<-412
+16<-515 16<-228 16<-612 16<-712 16<-812 16<-123 16<-313 16<-413 16<-516 16<-229
+16<-613 16<-713 16<-813 16<-124 16<-314 16<-414 16<-517 16<-230 16<-614 16<-714
+16<-814 16<-125 16<-315 16<-415 16<-518 16<-231 16<-615 16<-715 16<-815 16<-126
+16<-316 16<-416 16<-519 16<-232 16<-616 16<-716 16<-816 16<-127 16<-317 16<-417
+16<-520 16<-233 16<-617 16<-717 16<-817 16<-128 16<-318 16<-418 16<-521 16<-234
+16<-618 16<-718 16<-818 16<-129 16<-319 16<-419 16<-522 16<-235 01<-042 17<-041
+17<-619 17<-719 17<-819 17<-130 17<-320 17<-420 17<-523 17<-236 17<-620 17<-720
+17<-820 17<-131 17<-321 17<-421 17<-524 17<-237 17<-621 17<-721 17<-821 17<-132
+17<-322 17<-422 17<-525 17<-238 17<-622 17<-722 17<-822 17<-133 17<-323 17<-423
+17<-526 17<-239 17<-623 17<-723 17<-823 17<-134 17<-324 17<-424 17<-527 17<-240
+17<-624 17<-724 17<-824 17<-135 17<-325 17<-425 17<-528 17<-241 17<-625 17<-725
+17<-825 17<-136 17<-326 17<-426 17<-529 17<-242 17<-626 17<-726 17<-826 17<-137
+17<-327 17<-328 17<-329 17<-330 17<-331 17<-332 17<-333 18<-040 18<-334 18<-335
+18<-336 18<-337 18<-339 18<-340 18<-341 18<-342 18<-343 18<-344 18<-427 18<-428
+18<-429 18<-430 18<-431 18<-432 18<-433 18<-434 18<-243 18<-244 18<-245 18<-246
+18<-247 18<-248 18<-249 18<-627 18<-628 18<-629 18<-630 18<-631 18<-632 18<-633
+18<-634 18<-635 18<-636 18<-637 18<-638 18<-727 18<-728 18<-729 18<-730 18<-731
+18<-732 18<-733 18<-734 18<-735 18<-736 18<-737 18<-738 18<-739 18<-740 18<-741
+18<-742 18<-743 18<-744 18<-745 18<-746 18<-827 18<-828 18<-829 18<-830 18<-831
+18<-832 18<-833 18<-834 18<-835 18<-836 18<-837 18<-838 18<-839 18<-747 18<-748
+18<-749 18<-840 18<-841 18<-842 18<-843 18<-844 18<-845 18<-846 18<-847 18<-848
+18<-849 18<-138 18<-139 00<-039 00<-436 00<-437 00<-438 00<-439 00<-440 00<-441
+00<-345 00<-346 00<-347 00<-348 00<-349 00<-442 00<-530 00<-531 00<-532 18<-435
+18<-533 18<-534 18<-536 18<-537 18<-538 18<-639 18<-640 18<-641 18<-642 18<-643
+18<-644 18<-645 18<-646 18<-647 18<-648 18<-649 18<-539 18<-540 18<-541 18<-542
+18<-543 18<-544 18<-545 18<-546 18<-547 18<-548 18<-549 18<-140 18<-141 18<-142
+18<-143 18<-144 18<-145 18<-146 18<-147 18<-148 18<-149 18<-443 18<-444 18<-445
+18<-446 18<-447 18<-448 18<-449 17<-338 00<-535 03<-019 09<-025 04<-020 05<-021
+06<-022 07<-023 10<-026 11<-027 12<-028 13<-029 14<-030 02<-018 15<-031 08<-036
+\end{verbatim}
+
+Here's another example:
+\begin{verbatim}
+9 producers; 19 consumers; buffer size 1
+00<-000 01<-100 02<-200 16<-801 14<-701 14<-202 14<-602 12<-601 13<-301 13<-702
+13<-802 13<-103 13<-603 03<-704 15<-604 17<-102 00<-104 03<-105 03<-705 03<-402
+03<-804 03<-302 03<-501 03<-106 03<-204 03<-003 03<-605 03<-706 03<-403 03<-805
+03<-303 03<-502 03<-107 03<-205 03<-004 03<-606 03<-707 03<-404 03<-806 03<-304
+03<-503 03<-108 03<-206 03<-005 03<-607 03<-708 03<-405 03<-807 03<-305 03<-504
+03<-109 03<-207 03<-006 03<-608 03<-709 03<-406 03<-808 03<-306 03<-505 03<-110
+03<-208 03<-007 03<-609 03<-710 03<-407 03<-809 03<-307 03<-506 03<-111 03<-209
+03<-008 03<-610 03<-711 03<-408 03<-810 03<-308 03<-507 03<-112 03<-210 03<-009
+03<-611 03<-712 03<-409 03<-811 03<-309 03<-508 03<-113 03<-211 03<-010 03<-612
+03<-713 03<-410 03<-812 03<-310 03<-509 03<-114 03<-212 03<-011 03<-613 03<-714
+03<-411 03<-813 03<-311 03<-510 03<-115 03<-213 03<-012 03<-614 03<-715 03<-412
+03<-814 03<-312 03<-511 03<-116 03<-214 03<-013 03<-615 03<-716 03<-413 03<-815
+03<-313 03<-512 03<-117 03<-215 03<-014 03<-616 03<-717 03<-414 03<-816 03<-314
+03<-513 03<-118 03<-216 03<-015 03<-617 03<-718 03<-415 03<-817 03<-315 03<-514
+03<-119 03<-217 03<-016 03<-618 03<-719 03<-416 03<-818 03<-316 03<-515 03<-120
+03<-218 03<-017 03<-619 03<-720 03<-417 03<-819 03<-317 03<-516 03<-121 03<-219
+03<-018 03<-620 03<-721 03<-418 03<-820 03<-318 03<-517 03<-122 03<-220 03<-019
+03<-621 03<-722 03<-419 03<-821 03<-319 03<-518 03<-123 03<-221 03<-020 03<-622
+03<-723 03<-420 03<-822 03<-320 03<-519 03<-124 03<-222 03<-021 03<-623 03<-724
+03<-421 03<-823 03<-321 03<-520 03<-125 03<-223 03<-022 03<-624 03<-725 03<-422
+03<-824 03<-322 03<-521 03<-126 03<-224 03<-023 03<-625 03<-726 03<-423 03<-825
+03<-323 03<-522 03<-127 03<-225 03<-024 03<-626 03<-727 03<-424 03<-826 03<-324
+03<-523 03<-128 03<-226 03<-025 03<-627 03<-728 03<-425 03<-827 03<-325 03<-524
+03<-129 03<-227 03<-026 03<-628 03<-729 03<-426 03<-828 03<-326 03<-525 03<-130
+03<-228 03<-027 03<-629 03<-730 03<-427 03<-829 03<-327 03<-526 03<-131 03<-229
+03<-028 13<-630 13<-731 13<-428 13<-830 13<-328 13<-527 13<-132 13<-230 13<-029
+13<-631 13<-732 13<-429 13<-831 13<-329 13<-528 13<-133 13<-231 13<-030 13<-632
+13<-733 13<-430 13<-832 13<-330 13<-529 13<-134 13<-232 13<-031 13<-633 13<-734
+13<-431 13<-833 13<-331 13<-530 13<-135 13<-233 13<-032 13<-634 13<-735 13<-432
+13<-834 13<-332 13<-531 13<-136 13<-234 13<-033 13<-635 13<-736 13<-433 13<-835
+13<-333 13<-532 13<-137 13<-235 13<-034 13<-636 13<-737 13<-434 13<-836 13<-334
+13<-533 13<-138 13<-236 13<-035 13<-637 13<-738 13<-435 13<-837 13<-335 13<-534
+13<-139 13<-237 13<-036 13<-638 13<-739 13<-436 13<-838 13<-336 13<-535 13<-140
+13<-238 13<-037 13<-639 13<-740 13<-437 13<-839 13<-337 13<-536 13<-141 13<-239
+13<-038 13<-640 13<-741 13<-438 13<-840 13<-338 13<-537 13<-142 13<-240 13<-039
+13<-641 13<-742 13<-439 13<-841 13<-339 13<-538 13<-143 13<-241 13<-040 13<-642
+13<-743 13<-440 13<-842 13<-340 13<-539 13<-144 13<-242 13<-041 13<-643 13<-744
+13<-441 13<-843 13<-341 13<-540 13<-145 13<-243 13<-042 13<-644 13<-745 13<-442
+13<-844 13<-342 13<-541 13<-146 13<-244 13<-043 13<-645 13<-746 13<-443 13<-845
+13<-343 13<-542 13<-147 13<-245 13<-044 13<-646 13<-747 13<-444 13<-846 13<-344
+13<-543 13<-148 13<-246 13<-045 13<-647 13<-748 13<-445 13<-847 13<-345 13<-544
+13<-149 13<-247 13<-046 13<-648 13<-749 13<-446 13<-848 13<-346 13<-545 13<-248
+13<-047 13<-649 13<-447 13<-849 13<-347 13<-546 13<-249 13<-048 13<-448 13<-348
+13<-547 13<-049 13<-449 13<-349 13<-548 13<-549 02<-803 17<-002 15<-203 00<-001
+12<-703 11<-201 10<-101 09<-800 08<-700 07<-600 06<-500 05<-400 04<-300 01<-401
+\end{verbatim}
+\end{note}
+\end{slide}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+
+\begin{itemize}
+\item Latches -- support conjunctive waiting
+\vfill
+\begin{class}{intro/Latch}
+package intro;
+public class Latch
+{ int count;
+  public Latch(int count)  { this.count = count; }
+  
+  synchronized public void await() 
+  { while (count!=0) try { wait(); } catch (InterruptedException ex) {} }
+      
+  synchronized public int countDown()
+  { int res = count;
+    if (count>0) { if (--count==0) notifyAll(); }
+    return res;
+  }
+}
+\end{class}
+\vfill
+\item[]
+\begin{itemize}
+\item \texttt{await()} waits for the count to become zero
+\item \texttt{countDown()} decrements the count and notifies waiters if it is zero
+\item \texttt{countDown()} returns the count \textit{before} the decrement
+\begin{note}
+The atomicity of \texttt{countDown()} is important. Imagine, if you will,
+a \texttt{Latch} implementation with a method $getCount()$ that simply returns the 
+current count. Then the consumer loop from the \texttt{mmBuf} test program might have been written
+\begin{verbatim}
+        while (remaining.getCount()!=0) 
+        { // **
+          remaining.countDown();
+          // output buf.get() 
+        }
+\end{verbatim}
+
+But if a rescheduling were to occur at $**$ after
+$remaining.getCount()==1$, and another consumer process were to be
+running in the same loop, it would also get a $remaining.getCount()==1$.
+This would mean that $buf.get()$ would be called twice with only
+one element left to be read from the buffer. The last process
+to attempt to read from the buffer would deadlock.
+
+The general principle this illustrates is that the evaluation of a
+guarded operation on a shared data structure should be performed
+in such a way that if evaluation of the guard yields true, the
+pre-condition of the operation remains true despite the effect any
+\textit{permitted} intervening thread may have on the structure.
+The usual way of doing this is to ensure that no thread is permitted
+to intervene -- in other words that the guard and operation are
+executed atomically, \textit{i.e.} as a whole.
+
+\end{note}
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{Objects Considered Harmful}
+\vfill
+\begin{minipage}{5in}
+\begin{itemize}
+\item Objects have no life of their own
+
+\item Methods are essentially \textit{caller oriented}
+
+\item Each object is at the mercy of any thread that can see it
+
+\item Nothing can be done
+to prevent a method
+call ...
+ even if the object is not in a fit state to service it. 
+
+\item The object is not in control of its life.
+\end{itemize}
+\end{minipage}
+\begin{minipage}{5in}
+\begin{center}
+\pdffig[width=4in]{IMAGES/multithreadedobject}
+\end{center}
+\end{minipage}
+\end{slide}
+
+\begin{slide}
+\begin{minipage}{5in}
+\begin{itemize}
+\item Each thread snakes around objects in the system
+
+\item Objects come to life only \textit{transiently} as their methods are executed
+
+\item Threads cut across object boundaries
+\end{itemize}
+\end{minipage}
+\begin{minipage}{5in}
+\begin{center}
+\pdffig[width=4in]{IMAGES/spaghetti}
+\end{center}
+\end{minipage}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{Balance Sheet: Java Concurrency Primitives}
+\vfill
+\begin{itemize}
+\item Easy to learn basics -- but very hard to apply safely except in 
+simple situations
+
+\vfill
+  
+
+\item Synchronized-class methods are tightly interdependent -- 
+semantics compose in complex ways 
+
+
+\vfill
+  
+
+\item Threads have no internal structure ... there are no threads within threads
+  
+\vfill
+
+\item Big problems when it comes to scaling up complexity ...
+\vfill
+
+\item Staying in intellectual command of complex interclass interactions gets
+progressively harder as systems scale up 
+\end{itemize}
+\vfill
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Even the originators of Java say:
+\vfill
+
+\item[] 
+ ``If you can get away with it, avoid using threads. Threads can be
+   difficult to use, and they make programs harder to debug.
+\vfill
+ Component developers do not have to have an in-depth understanding
+ of threads programming: toolkits in which all components must fully
+ support multithreaded access,can be difficult to extend, particularly
+ for developers who are not expert at threads programming.
+\vfill
+
+ It is our basic belief that extreme caution is warranted
+when designing and building
+ multi-threaded applications
+... use of threads can be very deceptive ... 
+ in almost all
+cases they make debugging, testing, and maintenance
+ vastly more difficult and sometimes impossible. 
+\vfill
+ 
+ Neither
+the training, experience, or actual practices of most
+programmers, 
+ nor the tools we have to help us, are
+designed to cope with the non-determinism ... 
+ this is
+particularly true in Java ... 
+ we urge you to think twice
+about using threads in cases where 
+ they are not
+absolutely necessary ... ''
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{What next?}
+\vfill
+\begin{itemize}
+\item Build a library that encapsulates \textit{succesful} patterns of concurrency
+\item Institutionalize it either as language extensions or with a preprocessor
+\end{itemize}
+\vfill
+\end{slide}
+\end{document}
+
+
+
+
+
+
+
+
+

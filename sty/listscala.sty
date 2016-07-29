@@ -1,0 +1,76 @@
+\ProvidesPackage{listscala}
+\RequirePackage{listings}
+%
+% $Id: listscala.sty 74 2016-07-29 15:16:04Z sufrin $
+%
+% TexTract Scala definition; including definitions for the CSO library
+% and workaround for bad parsing of first morekeywords argument in listings
+%
+\lstdefinelanguage{scala}
+  {morekeywords={DUMMIFEROUS,
+        abstract, case, catch, class, def, 
+        do, else, extends, false, final, 
+        finally, for, forSome, if, implicit, 
+        import, match, new, null, object, 
+        override, package, private, protected, requires, 
+        return, sealed, super, this, throw, 
+        trait, try, true, type, val, 
+        var, while, with, yield, 
+        boolean, byte, char, int, long, double, float,
+        synchronized, repeat, break, attempt,
+        loop, actor, receive,
+        proc, prialt, alt, this, stop, after, orelse, attempt,
+        serve, priserve, abstract,
+        run, par, fork, }      
+   sensitive,%
+   morecomment=[l]//,%
+   morecomment=[l]...,%
+   morecomment=[s]{/*}{*/},%
+   morecomment=[s]{``}{''},%
+   morestring=[b]",%
+   morestring=[b]',%
+   literate={₀}{{$_0$}}{1}%
+{₁}{{$_1$}}{1}%
+{₂}{{$_2$}}{1}%
+{₃}{{$_3$}}{1}%
+{₄}{{$_4$}}{1}%
+{_}{{-}}{1}%
+{_1}{{$_1\;$}}{2}%
+{_2}{{$_2\;$}}{2}%
+{_3}{{$_3\;$}}{2}%
+{_i}{{$_i\;$}}{2}%
+{_j}{{$_j\;$}}{2}%
+{_k}{{$_k\;$}}{2}%
+{_m}{{$_m\;$}}{2}%
+{_n}{{$_n\;$}}{2}%
+{.}{{$\cdot$}}{1}%
+{-.-}{{$\cdots$}}{3}%
+{==>}{{$\Longrightarrow$}}{3}%
+{=?=>}{{$=?\smash{\Rightarrow}$}}{3}%
+{=!=>}{{$=!\smash{\Rightarrow}$}}{3}%
+{=>}{{$\Rightarrow$}}{2}%
+{<-}{{$\leftarrow$}}{2},%
+  }[keywords,comments,strings]%
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

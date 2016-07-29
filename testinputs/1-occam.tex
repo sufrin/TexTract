@@ -1,0 +1,2594 @@
+\documentclass{concdistfoils}
+\SVN    $Id: 1-occam.tex 11 2008-04-03 19:51:21Z sufrin $
+\topic[1]{The OCCAM Model}
+
+\def\<{\begin{array}{lll}}
+\def\>{\end{array}}
+\def\classsize{\smaller} 
+\def\verbatimsize{\smaller}
+\def\JavaSize{\verbatimsize}
+
+\def\heading#1{\begin{cframed}[8.8in]{#1}\end{cframed}}
+\def\subheading#1{\begin{cframed}[8.8in]{#1}\end{cframed}}
+
+\begin{document}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{The Simple Occam Model}
+\vfill
+\begin{itemize}
+\item Concurrent components (``processes'') communicate only by using channels
+\item Components may be composed in parallel or sequentially
+\item Channels are process-to-process (not shared)
+\vfill
+\item Intuitive reasoning about processes is straightforward
+\item Model is theoretically tractable using CSP
+\item Model can be extended to include shared and buffered channels
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Why CSP/Occam?
+\begin{itemize}
+\item Encapsulates fundamental principles of communication.
+\item Semantically defined in terms of structured mathematical
+model.
+\item Sufficiently expressive to enable reasoning about deadlock
+and livelock.
+\item Abstraction and refinement central to underlying theory.
+\item Robust and commercially supported software
+      engineering tools exist for formal 
+      verification of designs.
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{OCCAM in Java / OCCAM in Scala}
+\vfill
+\begin{itemize}
+\item Previously we supported the Occam model in Java
+\vfill
+\begin{itemize}
+\item We built a library (OJ) to emulate many of the OCCAM primitives 
+\item The library was inspired by the work of Peter Welch and his students at Kent
+\item It also drew on our own experience implementing the ``Eclectic CSP'' language
+\item (Our library classes are part of the \texttt{ox.oj} package)
+\item Though semantically coherent, its use was notationally cumbersome
+\end{itemize}
+\vfill
+\item This year we will support the OCCAM model in Scala 
+\begin{note}
+Scala is a derivative of Java that is substantially superior notationally and semantically, yet
+interoperable with Java.  
+\end{note}
+\begin{itemize}
+\item We will build a library (CSO) along similar lines to the OJ library
+\begin{note}
+In fact it benefits from some of the lessons we learned when
+using the OJ library.
+\end{note}
+\item We will integrate it with Scala so that it is notationally less cumbersome
+\item Nearly all the ideas we use are portable between CSO and OJ.
+\end{itemize}
+\end{itemize}
+\vfill
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Example of a simple concurrent design: generate and print multiples of four 
+\vfill
+\begin{smaller}
+\begin{alltt}
+
+  +-------------+     +---------------+     +---------------+     +-----+
+  |Generate nums| --> |copy alternates+ --> |copy alternates| --> |print|
+  +-------------+     +---------------+     +---------------+     +-----+
+                   x1                    x2                    x4
+\end{alltt}
+\end{smaller}
+\vfill
+\item Four concurrent processes connected by three intermediate channels
+\item Intermediate channels may be synchronized or may act as buffers
+\vfill
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Java implementation using OJ: note the cumbersome process definition notation
+\vfill
+
+\begin{class}{ojexamples/fours}
+package ojexamples; 
+import  ox.oj.*;
+
+public  class fours
+{public static void main(String[] args)
+ {final Channel<Integer> 
+        x1=new Chan<Integer>(), x2=new Chan<Integer>(), x4=new Chan<Integer>();
+  new Par
+  ( new Proc()
+    { public void run(){int n=0; while(true){ x1.write(n); n=n+1; }}}
+  , new Proc()
+    { public void run(){while(true){ int n=x1.read(); x2.write(n); x1.read(); }}}
+  , new Proc()
+    { public void run(){while(true){ int n=x2.read(); x4.write(n); x2.read(); }}}
+  , new PrintSink(x4, System.out)
+  ).run();
+ }
+}
+\end{class}
+
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Scala implementation using the CSO library
+\begin{obj}{csoexamples/fours}
+package csoexamples
+import  ox.CSO._ 
+\end{obj}
+\begin{doc}{}
+Prints multiple of four on the output stream by piping
+numbers through two processes, each of which copies alternate numbers.
+\end{doc}
+\begin{obj}{}
+object fours
+{ def main(args: Array[String])
+  { val x1 = OneOne[int] 
+    val x2 = OneOne[int] 
+    val x4 = OneOne[int]
+    (  proc { var n=0; while (true) { x1!n; n=n+1 } }   // generate
+    || proc { while (true) { var n=x1?; x2!n; x1? } }   // copy alternates
+    || proc { while (true) { var n=x2?; x4!n; x2? } }   // copy alternates
+    || proc { while (true) { Console.println(x4?) } }   // print 
+    )()
+  }
+}
+\end{obj}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{Process syntax and semantics}
+\vfill
+\begin{itemize}
+\item CSO Processes are ``stereotypes'' for Scala threads; they have type PROC
+\vfill
+\item CSO Processes are denoted in one of the following ways:
+
+\begin{tabular}{ll}
+        \\[2ex]   \SCALA{proc} \{ $scala~program$ \}                                           &-- a simple process
+        \\[2ex] $proc_1 \mathrel{||} proc_2$                                           &-- parallel composition of 2 processes
+        \\[2ex] $proc_1 \mathrel{||} proc_2 \mathrel{||} ... \mathrel{||} proc_n$   &-- parallel composition of $n$ processes
+        \\[2ex] $\mathrel{||}$ (\SCALA{for (}$bv$\SCALA{<-...) yield} $proc(bv)$)        
+        &-- parallel composition of a $bv-$indexed collection\\
+        &~~~of processes
+\end{tabular}
+\vfill
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\subheading{Process Semantics}
+\vfill
+\begin{enumerate}
+\item \SCALA{proc} \{ $scala~program$ \} () has exactly the same effect as running $scala~program$
+\begin{itemize}
+        \item No new threads are created in this case
+\end{itemize}
+ \vfill       
+\item $(proc_1 \mathrel{||} proc_2)()$ runs $proc_1$ concurrently with $proc_2$        
+\begin{itemize}
+        \item One of the processes is run in a new thread; the other in the current thread.
+        
+        \item The construct as a whole terminates only when both processes have terminated.
+\end{itemize}
+\vfill
+\item $(proc_1 \mathrel{||} proc_2 \mathrel{||} ... \mathrel{||} proc_n)()$ behaves like
+      $(\mathbf{proc}\{(proc_1 \mathrel{||} proc_2 \mathrel{||} ... )()\}\mathrel{||} proc_n)()$
+\begin{itemize}
+        \item All but one of the processes is run in a new thread; the other in the current thread.
+        
+        \item The construct as a whole terminates only when all processes have terminated.
+\end{itemize}
+\end{enumerate}
+\vfill
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item If $p:PROC$ is a process, then 
+\vfill
+\begin{itemize}
+\item The usual way of invoking it \textit{in the current thread} is to call $p()$ 
+
+
+\vfill
+
+\item There are two other ways, less frequently used:
+\begin{itemize}
+\item Calling $p.fork$ runs it \textit{in a new thread} concurrent with the current thread
+
+(and returns the \SCALA{ThreadHandle} associated with the new thread)
+
+\vfill
+
+\item Calling $p.serve$ runs it \textit{in a new \textit{daemon} thread} concurrent with the current thread
+
+(and returns the \SCALA{ThreadHandle} associated with the new thread)
+\begin{note}
+The Scala runtime system terminates when the only threads
+left running are \textit{daemon} threads. Such threads
+are generally used to provide services for other program threads.
+\end{note}
+\end{itemize}
+\vfill
+\item \SCALA{ThreadHandle}s are (sometimes) used to support the fine control of running threads.
+\begin{note}
+See the CSO documentation for ThreadHandle.
+\end{note}
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{Channels}
+\begin{itemize}
+\item Think of a channel as a directional wire
+
+\item At one end there is an output port, at the other an input port 
+
+\item Values output to one end are input from the other in the same order
+\vfill
+\begin{verbatim}
+
+        OutPort ---------------->------------------ InPort  
+         chan!v                                      chan?
+\end{verbatim}
+\vfill
+\item Communication is synchronized in a \JAVA{OneOne} channel
+\begin{itemize}
+\item  A producer  calls \texttt{chan!v} 
+\item  A consumer  calls \texttt{chan?}
+\item  The one that arrives first waits for the other; both then proceed
+\item  Thus the following two processes are equivalent (if x and v are of type T)
+\begin{scala}
+      { val chan=OneOne[T]; proc { chan!v } || proc { x = chan? } }
+\end{scala}
+\begin{scala}
+      proc { x = v }
+\end{scala}
+\begin{note}
+We will later discuss other kinds of channel
+\end{note}
+\end{itemize}
+\vfill
+\end{itemize}
+\begin{comment}
+\begin{note}
+\begin{obj}{csoexamples/equivtest}
+package csoexamples
+import  ox.CSO._
+/**
+    p1(v) and p2(v) are equivalent processes (the former is less efficient)
+    <p>
+    p1(v)() and p2(v) both assign v to x
+*/
+object equivtest
+{ def main(args: Array[String]) =
+  { var x: String = null
+    def p1(v: String) = { val chan = OneOne[String]
+                          proc { chan!v } || proc { x = chan? } 
+                        }
+    def p2(v: String) = proc { x = v }
+    p1("foo")();
+    Console.println(x);
+    p2("bar")();
+    Console.println(x);
+  }
+}
+\end{obj}
+\end{note}
+\end{comment}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Processes are first-class values, and can be generated by methods/functions
+\item For example: 
+\begin{obj}{csoexamples/eights}
+package csoexamples
+import  ox.CSO._ 
+
+object utils
+{ /** Copy everything read from in to the console */
+  def print[T](in: InPort[T]) = proc { while (true) { Console.println(in?) }}   
+  
+  /** Send the natural numbers to out */
+  def nats(out: OutPort[int]) = proc { var n=0; while (true) { out!n; n+=1 }} 
+  
+  /** Copy alternative values read from in to out */
+  def alts[T](in: InPort[T], out: OutPort[T]) =
+      proc { while (true) { out!(in?); in? }} 
+}
+
+\end{obj}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Generate and print multiples of eight -- uses 3 instances of \SCALA{alts}
+\begin{obj}{}
+object eights
+{ def main(args: Array[String])
+  { import utils._
+    val x1, x2, x4, x8 = OneOne[int]
+    (nats(x1) || alts(x1, x2) || alts(x2, x4) || alts(x4, x8) || print(x8))()
+  }
+}
+\end{obj}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{Ports and Channels as types}
+\vfill
+\begin{itemize}
+
+\item \JAVA{Chan[T]} is a subtype of both \JAVA{InPort[T]} and \JAVA{OutPort[T]}
+
+\item To be precise:
+
+\begin{scala}
+        trait InPort[T]  { def ?()         : T    ... }
+        
+        trait OutPort[T] { def !(value: T) : Unit ... }
+        
+        trait Chan[T] extends InPort[T] with OutPort[T] { }        
+\end{scala}
+\vfill
+\item So in Scala
+
+\begin{itemize}
+\item a channel can be viewed as an \JAVA{InPort} or an \JAVA{OutPort}
+
+\item the signature of a method parameterised by a channel makes
+it clear how the channel will eventually be used.
+\end{itemize}
+\vfill
+\item We often use the type abbreviations \SCALA{?[T]} and \SCALA{![T]} for  \SCALA{InPort[T]} and \SCALA{OutPort[T]}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item A classical OCCAM channel is one-to-one
+\begin{itemize}
+\item No more than one process is permitted to write to it at a time
+\item No more than one process is permitted to read from it at a time
+\end{itemize}
+\vfill
+\item A \SCALA{OneOne} implements a \SCALA{Chan} with exactly those restrictions 
+\vfill
+\item Some CSO channel implementations can be shared at one or both ends
+\item They incorporate one of the ``marker'' traits
+\begin{scala}
+
+        trait SharedOutPort[T] extends OutPort[T] { }
+        
+        trait SharedInPort[T]  extends InPort[T]  { }
+        
+        trait SharedChan[T]    extends Chan[T] with SharedInPort[T] 
+                                               with SharedOutPort[T] { }
+\end{scala}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item {Chan implementations in CSO -- a selection}
+\vfill
+\begin{scala}
+        class OneOne[T]  extends Chan[T] {...}
+        // ! and ? are synchronized; one process may send and one receive
+               
+        class OneMany[T]  extends Chan[T] with SharedInPort[T] {...}
+        // ! and ? are synchronized; one process may send many may receive
+        // (receivers wait their turn for ?)
+        
+        class ManyOne[T] extends Chan[T] with SharedOutPort[T] {...}
+        // ! and ? are synchronized; one process may receive; many may send
+        // (senders wait their turn for !)
+        
+        class ManyMany[T] extends SharedChan[T] {...} // Yes, Virginia!
+        
+        class Buf[T](size: int) extends SharedChan[T] {...}
+        // ! and ? are not synchronized; many may send; many may receive
+        // (senders wait their turn for !, receivers wait their turn for ?)
+\end{scala}
+\end{itemize}
+\vfill
+\begin{smaller}
+\begin{itemize}
+\item A compiler cannot \textit{completely} enforce the restrictions on sharing 
+\item Infractions may even go undetected dynamically (though our code is cautious)
+\end{itemize}
+\end{smaller}
+\end{slide}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{Pipelines}
+\vfill
+
+\begin{itemize}
+\item Powerful conceptual tool for coping with \textit{structure clash} between components
+\item Lightweight counterpart of Unix ``\textit{pipes and filters}'' architecture
+\begin{note}
+Because the word ``filter'' has connotations for functional
+programmers we shall use the more neutral term ``transformer'' in these notes.
+\end{note}
+\item Infrastructure needed for pipelines can be used more generally
+\begin{note}
+Pipes and filters is a software design pattern first written about by Doug
+McIlroy.
+
+In the context of Unix operating systems, a pipe signifies that
+the output of one program feeds directly as input to another
+program. The Unix shell uses the pipe character (|) to join programs
+together. A sequence of commands joined together by pipes is known
+as a pipeline. For creating this mechanism, all Unix tools have
+access to three distinct files:
+
+\begin{itemize}
+\item stdin the standard input file 
+\item stdout the standard output file 
+\item stderr the standard error file
+\end{itemize}
+
+By joining one tool's stdout to another tools stdin, a pipeline is
+formed. Errors are sent to a side track and accumulated.
+
+``Filter'' programs (as they are called in Unix) often form the constituent programs in a pipeline. In essence
+a filter is a program that applies a transformation to a selection of its
+inputs. 
+
+For example, the following Unix pipeline:
+
+\begin{verbatim}
+        cat * | grep ".*alice.*" | grep -v ".*wonderland.*" | wc -l
+\end{verbatim}
+
+will print out the number of lines in all files in the current
+directory which contain the text "alice", but not the text
+"wonderland".
+
+The pipeline has four parts: \texttt{cat *} concatenates the text of all files
+to its stdout; \texttt{grep "alice"} reads its stdin as lines, and prints on
+its stdout only those lines which contain the word \texttt{"alice"}; 
+\mbox{\texttt{grep -v "wonderland"}} reads its stdin and prints on its stdout only those
+remaining lines which do not contain the word "wonderland"; \mbox{\texttt{wc -l}}
+counts the lines on its stdin, and prints a line count on its stdout.
+\end{note}
+\end{itemize}
+
+\vfill
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item We can compose programs by ``pipelining'' their component stages
+\vfill
+\item Eg: Source, Transform, Sink components connected by channels (left, right)
+
+\begin{itemize}
+\item Source constructs elements and writes them to its out port 
+\vfill
+\item Transformer reads elements from its in port 
+\begin{itemize}
+\item selects and/or transforms them in  some way, then
+\item writes them to its out port
+\end{itemize}
+\vfill
+\item Sink reads elements from its in port
+\begin{itemize}
+\item disposes of them in some way
+\end{itemize}
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Pipelines can be diagrammed: \textit{e.g.} the multiples-of-two pipeline
+\vfill
+\begin{smaller}
+\begin{verbatim}
+   +------------+          +---------------+          +----------+
+   |            |   left   |               |   right  |          |
+   |  nats   out|--------->|in   alts   out|--------->|in  print |
+   |            |          |               |          |          |
+   +------------+          +---------------+          +----------+
+\end{verbatim}
+\end{smaller}
+\vfill
+\begin{scala}
+                val left, right = OneOne[int]
+                (nats(left) || alts(left, right) || print(right))
+\end{scala}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Pipelines can be several stages long
+\vfill
+\item Stages may themselves be several stages long 
+\begin{scala}
+                def alts2(in: ?[int], out![int]) = 
+                { val mid = OneOne[int]
+                  alts(in, mid) || alts(mid, out)
+                }
+                
+                def alts4(in: ?[int], out![int])
+                { val mid = OneOne[int]
+                  alts2(in, mid) || alts2(mid, out)
+                }
+                
+                val left, right = OneOne[int]
+                (nats(left) || alts4(left, right) || print(right))
+\end{scala}
+\vfill
+\item Stages are implemented by  \SCALA{proc}s repeatedly reading, processing 
+      and writing
+\item Termination can be signalled either at the producer or at the consumer end
+\item Supporting clean termination poses some challenges to \SCALA{Chan} implementers
+
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{Generating Primes}
+
+\begin{doc}{csoexamples/primes.scala}
+\begin{itemize}
+   \item This program generates primes by dynamically growing a pipeline of \texttt{sieve}s
+   that 
+\begin{enumerate}
+   \item pass on the first number that appears on their input stream, then
+   \item filter out successive multiples of that number; passing on the others 
+\end{enumerate}
+\end{itemize}
+\end{doc}
+\begin{obj}{}
+package csoexamples
+import  ox.CSO._
+import  utils._
+
+object primes
+{ def main(args: Array[String]) =
+  { val mid, res = OneOne[int]    
+    (  proc { var i=2; while (true) { mid!i; i+=1 } }
+    || sieve(mid, res)                             
+    || print(res)
+    )()
+  }  
+\end{obj}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item[]
+\begin{obj}{}
+  def noMult(n: int, in: ?[int], out: ![int]) : PROC =
+      proc 
+      { while (true) 
+        { val m=in?;
+          if (m%n!=0) out!m 
+        } 
+      }
+\end{obj}
+\vfill
+\begin{obj}{}
+  def sieve(in: ?[int], out: ![int]) : PROC =
+      proc
+      { val n   = in?;
+        val mid = OneOne[int]
+        out!n 
+        (noMult(n, in, mid) || sieve(mid, out))()
+      }        
+
+} // object primes
+\end{obj}
+\vfill
+\end{itemize}
+\begin{ex}
+Without defining any additional methods, rewrite the body of the
+\SCALA{main} method of \SCALA{primes} so that it takes the following
+form, and still generates the primes
+\begin{scala}
+    (  nats(mid)
+    || proc {  ... }                             
+    || print(res)
+    )()
+\end{scala}
+\begin{ans}
+The form we want is
+\begin{scala}
+    (  nats(mid)
+    || proc { mid?; mid?; sieve(mid, res)() }                             
+    || print(res)
+    )()
+\end{scala}
+The program below provides confirmation that the above solution works.
+Rather than copy the text of sieve from the primes module we've
+simply referred to it.
+\begin{obj}{csoexamples/primes2}
+package csoexamples
+import  ox.CSO._
+import  utils._
+
+object primes2
+{ def main(args: Array[String]) =
+  { val mid, res = OneOne[int]
+    (  nats(mid)
+    || proc { mid?; mid?; primes.sieve(mid, res)() }                             
+    || print(res)
+    )()
+  }  
+}
+\end{obj}
+\end{ans}
+\end{ex}
+
+\begin{note}
+\begin{itemize}
+\item The Primes example cannot be done this way in OCCAM because
+      networks of processes and channels must be set up statically
+      and there is no unbounded recursion.
+      
+\item Although the pipeline grows dynamically, the \SCALA{res} channel
+      is not shared among invocations of \SCALA{seive}, but used once in each 
+      invocation of \SCALA{seive} then handed on to the newly-constructed stage.
+\end{itemize}
+\end{note}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{center}
+\pdffig[width=9in]{IMAGES/primes1}
+\end{center}
+\vfill
+\begin{center}
+\pdffig[width=9in]{IMAGES/primes2}
+\end{center}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{center}
+\pdffig[width=9.5in]{IMAGES/primes3}
+\end{center}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{center}
+\pdffig[width=9.5in]{IMAGES/primes4}
+\end{center}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{center}
+\pdffig[width=9.5in]{IMAGES/primes5}
+\end{center}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{Prefabricated Pipeline Components}
+\vfill
+\begin{obj}{ox/cso/Pipe}
+package ox.cso
+import  CSO._
+
+object Pipe 
+{ def copy[T] (in: ?[T], out: ![T]) = proc 
+  { repeat { out!(in?) }  
+    (proc { in.closein } || proc { out.closeout })()
+  }
+  
+  def filter[T] (pass: T => boolean) (in: ?[T], out: ![T]) = proc
+  { repeat { val v=in?; if (pass(v)) out!v }  
+    (proc { in.closein } || proc { out.closeout })()
+  }    
+  
+  def map[I,O] (f: I => O) (in: ?[I], out: ![O]) = proc 
+  { repeat { out!(f(in?)) }  
+    (proc { in.closein } || proc { out.closeout })()
+  }
+  
+  def console[T](in: ?[T]) = proc { repeat { Console.println(in?) } }
+  
+\end{obj}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{obj}{}
+  def lines(in: java.io.LineNumberReader, out: ![String]): PROC = proc
+  { repeat 
+    { val line = try { in.readLine } catch { case _ => null }
+      if (line==null) stop
+      out!line
+    }
+    (proc { in.close } || proc { out.closeout })()
+  }
+  
+  def lines(in: java.io.Reader, out: ![String]): PROC = 
+      lines(new java.io.LineNumberReader(in), out)
+  
+  def keyboard(out: ![String]) = 
+      lines(new java.io.InputStreamReader(System.in), out)
+}  
+\end{obj}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{Closing channels, guarded repetition, exceptions}
+\vfill
+\begin{itemize}
+\item A channel may be closed at any time (including after it has been closed)
+\item Any waiting reader or writer is ``interrupted'' with a \SCALA{Chan.Closed} exception.
+\vfill
+\item The CSO constructs
+\begin{scala}
+        repeat { ... }                          repeat (guard) { ... }
+\end{scala}
+\vfill
+behave in much the same way as
+\vfill
+\begin{scala}
+        while (true) { ... }                    while (guard) { ... }
+\end{scala}
+\vfill
+
+but terminate (cleanly) if \SCALA{...} throws an \SCALA{ox.cso.Stop} exception
+
+\vfill
+
+\begin{itemize}
+\item \SCALA{Chan.Closed} is one such exception: thrown by a \SCALA{?} or \SCALA{!} on a closed channel
+\item The method \SCALA{stop} throws such an exception.
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Behaviour of exceptions within  $(p_1|| p_2 || ... || p_n)()$
+\vfill
+
+\begin{itemize}
+\item An (uncaught) exception occuring within any $p_i$
+\begin{itemize}
+\item prints a stack backtrace unless the exception is a \SCALA{cso.Stop}
+\item terminates $p_i$ immediately
+\end{itemize}
+\vfill
+\item When all the $p_i$ have terminated, the  $p_1|| p_2 || ... || p_n$ terminates
+
+\textbf{but}
+
+\item If any of the $p_i$ terminated with an exception, then a $cso.Stop$ exception is thrown.
+
+\end{itemize}
+\end{itemize}
+\vfill
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item An example that tests forward and backward ``close-propagation'' in a pipeline
+\begin{scala}
+                producer -> copy -> copy -> ... copy -> consumer
+\end{scala}
+\end{itemize}
+\begin{note}
+The Scala notation \textbf{for}\texttt{ (i<-$iterator$) \textbf{yield} $expression_i$}
+denotes an iterator whose successive elements are 
+$$
+        expression_{iterator_0}, 
+        expression_{iterator_1}, ..., 
+        expression_{iterator_n}
+$$
+when the successive elements of 
+$iterator$ are $iterator_0, iterator_1, ..., iterator_n$
+
+The \textit{prefix} CSO operator \SCALA{||} transforms an iterator of processes
+into their concurrent composition. For $m, n:int$, the iterator \SCALA{m until n} yields 
+the numbers $m, m+1, ... n-1$.
+
+Thus
+\begin{scala}
+    || (for (i <- 0 until 30) yield copy(out(i), out(i+1)) )
+\end{scala}
+is the same process as
+\begin{scala}
+    copy(0, 1) || copy(1, 2) || ... || copy(29, 30)
+\end{scala}
+\end{note}
+\begin{obj}{csoexamples/testPipe}
+package csoexamples; import ox.CSO._; import ox.cso.Pipe._; import Console._
+
+object testPipe
+{ def main(args: Array[String]) =
+  { val consume = if (args.length<2) 100 else args(1).toInt
+    val copies  = if (args.length<1) 35  else args(0).toInt
+    val chan    = OneOne[int](copies+1); 
+    val left    = chan(0)
+    val right   = chan(copies)
+    (  proc { try { for (i <- 0 until 100) left!i; left.close } 
+                    catch { case Closed(s) => println("Consumer closed") }} 
+                                                        
+    || || (for (i <- 0 until copies) yield copy(chan(i), chan(i+1)))    
+    
+    || proc { try { for (i <- 0 until consume) println(right?); right.close }
+              catch { case Closed(s)  => println("Producer closed") }}
+    )()
+  }
+}
+\end{obj}
+\begin{note}
+\begin{itemize}
+\item The producer process always writes 100 items to the left hand end
+of the ``copy pipeline'', and then closes the channel at that end.
+\item The consumer process reads a variable number of items from the
+right hand end of the pipeline, and then closes the channel at that end.
+\item Invoke this program with \texttt{testPipe $m$ $n$} (where $m$ is the number of
+copy processes and $n$ is the number of items the consumer process is to read). Here
+we consider the what happens for $1\leq m\leq 100$.
+\begin{itemize}
+\item if $n==100$ the producer and consumer both finish cleanly
+\item if $n>100$ the consumer's attempt to read the 101st item throws a \SCALA{Chan.Closed}
+      exception in the consumer. 
+      
+      This is because the read propagates back along the copy
+      pipeline, until it reaches \SCALA{left}. This gives rise
+      to a \SCALA{Chan.Closed} exception that then propagates forward
+      along the pipeline.
+
+\item if $n<100$ the producer's attempt to write the $n+1$th item throws a 
+      \SCALA{Chan.Closed} exception in the producer.
+      
+      In this case it is the write propagates forward along the copy
+      pipeline until it reaches \SCALA{right}. This gives rise 
+      to a \SCALA{Chan.Closed} exception that then propagates backward
+      along the pipeline.
+\end{itemize}
+\item What do you think happens when $m>100$?
+
+\item We will later explain the interaction of the \SCALA{?, !}, and 
+      \SCALA{close} operators in detail.
+\end{itemize}
+
+The following program tests close-propagation in a \SCALA{Buf} that
+is being used only by one process at each end.
+\begin{obj}{csoexamples/testPipe2}
+package csoexamples
+import  ox.CSO._
+import  ox.cso.Pipe._
+
+object testPipe2
+{ def main(args: Array[String]) =
+  { val chan = Buf[int](31); val left = chan;  val right = chan
+    val num  = args(0).toInt
+    (  proc 
+       { try   { for (i<-0 until 100) left!i; left.close } 
+         catch { case Closed(s) => Console.println("Consumer closed") }}   
+                      
+    || proc 
+       { try   { for (i<-0 until num) Console.println(right?); right.close }
+         catch { case Closed(s) => Console.println("Producer closed") }}
+    )()
+  }
+}
+\end{obj}
+\end{note}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Unix/Linux ''grep'' -- searches for regular expression matches within files
+\item Pipeline stages are buffered
+\begin{obj}{csoexamples/grep}
+package csoexamples
+import  ox.CSO._
+import  ox.cso.Pipe._
+
+object grep
+{ def main(args: Array[String]): Unit = 
+  { if (args.length==0) return
+    val inv = args(0)=="-v"
+    val pat = args(if (inv) 1 else 0)
+    for (i <- (if (inv) 2 else 1) until args.length)
+    { val in, out  = Buf[String](50)
+      (  lines(new java.io.FileReader(args(i)), in)
+      || filter ((s:String) => inv != s.matches(pat)) (in, out) 
+      || console(out) 
+      )()
+    }
+  }
+}
+\end{obj}
+\end{itemize}
+\begin{ex**}{Debugging}
+What (if anything) is wrong with the following alternative implementation of 
+\SCALA{grep}, which is intended to re-use the buffers between components?\footnote{It is likely that you will have to run it.}
+
+\begin{obj*}{csoexamples/grep2}
+package csoexamples
+import  ox.CSO._
+import  ox.cso.Pipe._
+
+object grep2
+{ def main(args: Array[String]): Unit = 
+  { if (args.length==0) return
+    val inv = args(0)=="-v"
+    val pat = args(if (inv) 1 else 0)
+    val in, out  = Buf[String](50) 
+      (  proc { for (i <- (if (inv) 2 else 1) until args.length) lines(new java.io.FileReader(args(i)), in) }
+      || filter ((s:String) => inv != s.matches(pat)) (in, out) 
+      || console(out) 
+      )()
+  }
+}
+\end{obj*}
+
+Does the following reformulation behave as required? If so, why? If not
+why not?
+\begin{obj*}{csoexamples/grep3}
+package csoexamples
+import  ox.CSO._
+import  ox.cso.Pipe._
+
+object grep3
+{ def main(args: Array[String]): Unit = 
+  { if (args.length==0) return
+    val inv = args(0)=="-v"
+    val pat = args(if (inv) 1 else 0)
+    val in, out  = Buf[String](50) 
+    for (i <- (if (inv) 2 else 1) until args.length)     
+      (  lines(new java.io.FileReader(args(i)), in)
+      || filter ((s:String) => inv != s.matches(pat)) (in, out) 
+      || console(out) 
+      )()
+  }
+}
+\end{obj*}
+
+\begin{ans}
+This program simply deadlocks! The bug is quite subtle if you're not used to CSO: the
+body of 
+\begin{scala}
+ proc { for (i <- (if (inv) 2 else 1) until args.length) 
+                lines(new java.io.FileReader(args(i)), in) }
+\end{scala}
+is a process abstraction that never gets run! 
+
+The ``correction'' isn't, and nor is a correction in which
+the lines process abstraction runs.
+\begin{scala}
+ proc { for (i <- (if (inv) 2 else 1) until args.length) 
+                lines(new java.io.FileReader(args(i)), in)() }
+\end{scala}
+
+They both find occurences of the pattern in at most the first named file. 
+When the first instance of \SCALA{lines} closes its output file, that
+close propagates down the pipeline. Subsequent instances of \SCALA{lines}
+terminate when they first attempt to output to the closed pipeline.
+
+\end{ans}
+\end{ex**}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Concurrent grep -- search files simultaneously; stop at first match
+\begin{hideobj}{csoexamples/cgrep}
+package csoexamples
+import  ox.CSO._
+import  ox.cso.Pipe._
+import  MultiTagger._
+/** 
+   Concurrent grep -- searches files simultaneously
+*/
+\end{hideobj}
+\begin{obj}{}
+object cgrep
+{ def main(args: Array[String]): Unit = 
+  { val pat = args(0)
+    val sat = OneOne[String](args.length-1)
+    val out = OneOne[String]
+    val count = OneOne[(int, String)]
+    ( || (for (i <- 1 until args.length) yield
+          { val in  = OneOne[String]
+            (  lines(new java.io.FileReader(args(i)), in)
+            || filter ((s:String) => s.matches(pat)) (in, sat(i-1))
+            )
+          }
+         )
+      || tagger(sat, count) 
+      || proc { val (n,m)=count?; out!(args(n+1)+": "+m); out.close; count.close }      
+      || console(out) 
+    )()
+  }
+}
+\end{obj}
+\begin{ex**}{Termination}
+Explain in detail why the concurrent program \texttt{cgrep}  stops at the first 
+match it finds. 
+How would you modify it so that it stops at the $n$th match? What will your
+program do if there are fewer than $n$ matches?
+\begin{ans}
+It stops because the ``relay'' process
+\begin{scala}
+      || proc { val (n,m)=count?; out!(args(n+1)+": "+m); out.close; count.close }      
+\end{scala}
+reads but a single item from \SCALA{count} and then 
+closes \SCALA{count} and \SCALA{out}.
+The former close causes the next output from the tagger to 
+fail, thereby terminating its ``copy loop'' and
+causing its input channels (the $sat(i)$) to be closed. Closure of
+each input channel causes the corresponding \SCALA{filter}
+to fail when next it attempts to output. In much the same
+way the closes cascade back through and \SCALA{lines}
+processes.
+
+Changing the  relay process to
+\begin{scala}
+      || proc { for (i<-0 until n) 
+                { val (n,m)=count?; out!(args(n+1)+": "+m) }
+                out.close; count.close 
+              }      
+\end{scala}
+will do what is required. If there are fewer than $n$ matches the program still terminates,
+but the channel closes cascade forwards through the \SCALA{lines} and
+\SCALA{filter}. When all the  \SCALA{filter} processes have closed their
+output channels, the \SCALA{alt} in \SCALA{tagger} aborts, terminating
+the tagger loop.
+\end{ans}
+\end{ex**}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{Pipelines and structure clash}
+\vfill
+\begin{itemize}
+
+\item Example 1: compare the fringes of two variadic trees 
+\begin{itemize}
+\item Definition: $t_1<t_2$ if $flatten(t_1)<flatten(t_2)$
+\item Complication: we do not have enough space to store both flattened trees
+\begin{note}
+The trees we are talking of may not be data structures in memory or
+on disc. They could be (for example) game trees -- where the labels 
+represent game positions, and the (roots of the) subtrees of a labelled node
+may represent the positions after all possible moves from the position
+represented by the node's label. The order relation on such a tree might be with respect
+to ``goodness of position'' by some measure or other. Although it is normal
+to label the \textit{edges} in a gametree with moves, and the nodes
+with positions, there is a trivial transformation of this representation
+in which Labels are (Move,Position) pairs.
+
+The \textit{depth} of a game tree that is  evaluated in this way
+will be limited by the computational resources that the
+user wants to devote to exploring it. Details such as this can very
+naturally be abstracted from in the definition of the concrete 
+implementation of Tree.
+\end{note}
+\item Requirement: the algorithm we use should be obviously correct
+\item Requirement: $compare(t_1, t_2) = 
+      \left\{\<-1&\textrm{if}&t_1<t_2\\0&\textrm{if}&t_1=t_2\\+1&\textrm{if}&t_1>t_2\>
+      \right.$
+\end{itemize}
+\end{itemize}
+\vfill
+\end{slide}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item A Variadic Tree (AKA: Rose Tree)
+\begin{center}
+\pdffig[width=7in]{IMAGES/rosetree}
+\end{center}
+\vfill
+\item Interface to a Variadic tree 
+\begin{obj}{ox/cso/Tree}
+package ox.cso
+
+trait Tree[Label]
+{ def label:    Label
+  def subTrees: Seq[Tree[Label]]
+}
+\end{obj}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item A typical Tree implementation: ox.cso.FileTree -- the filestore as a tree
+\vfill
+\begin{hideobj}{ox/cso/FileTree}
+package ox.cso
+\end{hideobj}
+\begin{obj}{}
+import  java.io.File
+class FileTree(file: File, path: String) extends Tree[String]
+{ val rep   = new File(file, path)
+  def label = rep.getPath()
+
+  def subTrees() = 
+   if (rep.isDirectory()) rep.list.toList.sort(less).map(NameToTree) else Nil
+      
+  def NameToTree(name: String) = new FileTree(rep, name)
+  def less(a:String, b:String) = a.compareToIgnoreCase(b) < 0
+  
+  override def toString = rep.toString
+}
+
+object FileTree
+{ def FileTree(path: String)             =  new FileTree(new File("."), path)
+  def FileTree(file: File, path: String) =  new FileTree(file, path)
+}
+\end{obj}
+\vfill
+\begin{smaller}
+\begin{itemize}
+\item File is \textit{nearly} what we want.
+\item FileTree adapts and extends it to be exactly what we want.
+\begin{note}
+One of the things we want is for the names of the files in the directory to be
+in alphabetical order. The standard Java \texttt{list()} method doesn't do this.
+I apologise for the use of an $n^2$ algorithm, but it fits the page. Replace it if you want.
+\end{note}
+\end{itemize}
+\end{smaller}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item \SCALA{flatten} does a (prefix) recursive tree traversal
+\item \SCALA{finiteTreeFlatten} flattens finite trees, and sends an end-of-stream token (null)
+\begin{note}
+Is it correct? It just depends what you mean by obviously. We didn't define what
+tree-flattening was: we might have meant prefix order, postfix order,
+breadth-first order ... But it should be clear that there's an equally
+simple flatten to be made for each of these orders\footnote{Save,
+perhaps, breadth-first -- but even that is fairly straightforward.}
+In any case a simple inductive argument shows that such a recursive
+algorithm outputs all the leaves in the tree eventually.
+\end{note}
+\vfill
+\begin{obj}{ox/cso/TreeUtil}
+package ox.cso
+import  ox.CSO._
+\end{obj}
+\begin{obj}{}
+object TreeUtil
+{ def flatten[L](tree: Tree[L], out: ![L]) = 
+  { def flatten(tree: Tree[L]) : Unit = 
+    { out!(tree.label)
+      for (t <- tree.subTrees) flatten(t)
+    }    
+    flatten(tree) 
+  }
+}
+\end{obj}
+\end{itemize}
+\begin{note}
+The following module is a simple example of the use to which
+\SCALA{TreeUtil.flatten} and \SCALA{FileTree} can be put. It outputs the
+descendants of each of the paths specified by its parameters.
+\begin{obj}{csoexamples/findpath}
+package csoexamples
+import  ox.CSO._
+import  ox.cso.TreeUtil._
+import  ox.cso.FileTree._
+import  ox.cso.Pipe._
+
+object findpath
+{     
+  def main(args: Array[String])
+  { 
+    for (arg <- args)
+    { val mid = OneOne[String]
+      (proc { flatten(FileTree(arg), mid); mid.close } || console(mid))()     
+    }
+  }
+}
+\end{obj}
+\end{note}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Tree ordering can be factored as:
+\begin{smaller}
+\begin{itemize}
+\item Fork two tree sources connected to channels
+\item Lexicographically order the channels
+\end{itemize}
+\end{smaller}
+\vfill
+\begin{obj}{ox/cso/treeOrder}
+package ox.cso
+import  ox.cso.TreeUtil._
+
+object treeOrder
+{ import  ox.CSO._
+  def treeOrder[L <% Ordered[L]](t1: Tree[L], t2: Tree[L]): int =
+  { val c1, c2 = OneOne[L]
+    var answer = 0   
+    (  finiteTreeFlatten(t1, c1)
+    || finiteTreeFlatten(t2, c2) 
+    || proc { answer = lexOrder.lexOrder(c1, c2) }
+    )()
+    return answer
+  }
+    
+  def finiteTreeFlatten[L <% AnyRef](tree: Tree[L], out: ![L]) = proc
+  { try { flatten(tree, out); out ! null.asInstanceOf[L] } }
+}
+\end{obj}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Lexicographical order of sequences read from two ports.
+\begin{note}
+If \SCALA{lexOrder} terminates then it yields
+an integer that is $<0, =0, >0$ according as the first sequence
+is lexicographically less than, equal to, or greater than 
+the second. 
+
+If both the sequences are finite, then it always terminates.
+Otherwise it terminates after the first difference is detected 
+between corresponding elements of the sequences.
+
+Finite sequences are expected to end in null. It is not sufficient to
+use the closure of a channel to signify that the corresponding sequence
+has terminated, for it is not possible to distinguish that way between
+a sequence that hasn't ended yet, and a sequence that is taking a long
+time to close.
+\end{note}
+\begin{obj}{ox/cso/lexOrder}
+package ox.cso
+import  ox.CSO._
+   
+object lexOrder
+{ def lexOrder[L <% Ordered[L]](c1: ?[L], c2: ?[L]) =
+  { var answer = 0
+    var l1 = c1? ; var l2 = c2? ;
+    repeat (answer==0 && l1!=null && l2!=null)
+    { answer = l1.compareTo(l2)
+      if (answer==0) { l1 = c1? ; l2 = c2? }
+    }
+    // answer!=0 || l1==null || l2==null
+    ( proc {c1.close} || proc {c2.close} )()
+    if (answer!=0) answer else
+    if (l1==l2)    0      else           
+    if (l2==null)  1      else -1
+  }
+}
+\end{obj}
+\begin{comment}
+\begin{note}
+\begin{obj}{csoexamples/testlexorder}
+package csoexamples
+import  ox.CSO._
+import  ox.Format._
+import  ox.cso.lexOrder._
+
+object testlexorder
+{
+  def main(args: Array[String]) =
+  { val c1, c2 = OneOne[String]
+    (  proc { attempt { for (s <- List("a", "b", "c")) c1!s; c1!null; c1.close  } {} }
+    || proc { attempt { for (s <- args) c2!s; c2!null; c2.close } {}}
+    ).fork
+    printf("%d %s %s\n", lexOrder(c1, c2), c1.open, c2.open)
+  }
+}
+\end{obj}
+\begin{obj}{csoexamples/testtreeorder}
+package csoexamples
+import  ox.CSO._
+import  ox.Format._
+import  ox.cso.TreeUtil._
+import  ox.cso.treeOrder._
+import  ox.cso.Pipe._
+import  ox.cso.Tree
+
+case class a(l: String) extends Tree[String] 
+{ def label    = l
+  def subTrees = List()
+  def apply(subtrees: Tree[String]*) = new Tree[String] 
+  { def label = l
+    def subTrees = subtrees
+  }
+}
+
+object testtreeorder
+{
+  def main(args: Array[String]) =
+  { val t1 = a("1")(a("2"), a("3"), a("4"))
+    val t2 = a("1")(a("2")(a("3")))
+    for (arg <- List(t1, t2))
+    { val mid = OneOne[String]
+      (proc { flatten(arg, mid); mid!"---"; mid.close } || console(mid))()     
+    }
+    printf("%d\n", treeOrder(t1, t2))
+  }
+}
+\end{obj}
+\end{note}
+\end{comment}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\subheading{Other examples of structure clash}
+\vfill
+\begin{itemize}
+\item Peephole optimisation in a compiler
+\begin{itemize}
+\item Compiler generates instructions in sequence by traversing an abstract
+      syntax tree.
+\item Adjacent (or nearly-adjacent) \texttt{storeTo(n); loadFrom(n)} 
+      instruction pairs frequently arise; the two
+      instructions are generated from structurally separate parts of the
+      program.
+\item Typical task for a peephole optimiser: find such pairs and 
+      eliminate the redundant \texttt{loadFrom}.
+\item Best organised as a recursive tree-traversal outputting instructions
+      into a channel that the peephole optimiser reads
+      instructions from.
+\end{itemize}
+
+\item Operating system process wants to read a sequence of bytes from a file
+\begin{itemize}
+\item Internal OS representation of the file might be as a B-tree (cf. Unix)
+\item ``Streamifying'' the tree can be done with a recursive tree walk within the OS.
+\item In fact, most OS implementations encode the state of the tree walk in an
+      explicit stack.
+\begin{note}
+I'm grateful to J.M. Spivey for reminding me of this.
+\end{note}
+
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Image encoding/decoding (eg GIF)
+\begin{itemize}
+\item Construct a [256]-colour lookup-table from image bytes
+\item Encode an image as a sequence of 3-byte-valued pixel values
+\item (Possibly) reorder the stream to interlace the rows of the image
+\item (Possibly) compress the data in LZW form
+\item Make blocks of $< 256$ bytes
+\end{itemize}
+\vfill
+\item Simple Document Compilers (TeX, troff, ...) organised as a pipeline
+\begin{itemize}
+\item Lexical scanner: characters $\longrightarrow$ items
+\item Macro-expander/Directive interpreter:  items$\longrightarrow$items
+\item Box assembler:   items$\longrightarrow$boxes
+\item Paragraph assembler: boxes$\longrightarrow$paragraphs
+\item Page assembler: paragraphs$\longrightarrow$pages
+\end{itemize}
+\item[] (this is an oversimplification)
+\end{itemize}
+\newexpage
+%\input{part2-private}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Benefits are
+\begin{itemize}
+\item Separation of concerns makes for more ``transparently correct'' implementation
+\item Potential for speedup on multiprocessors
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{Alternation}
+\vfill
+
+\begin{itemize}
+\item An input \texttt{alt}(ernation) is used when we need to read from one of several ports
+\begin{itemize}
+\item and cannot predict which, if any, of the ports is ready
+\item and need to identify exactly which port we read from
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item In CSO an \SCALA{alt} is a function-like object constructed from a number of guarded \textit{events}
+\begin{alltt}
+        \textsf{\textbf{alt}} ( \(port\sb1 (guard\sb1)\) \texttt{==>} \{ \(cmd\sb1\) \}
+             ...
+           | \(port\sb{n} (guard\sb{n})\) \texttt{==>} \{ \(cmd\sb{n}\) \}
+           )
+\end{alltt}
+\vfill
+\item The event: \(port ~(guard)\) ~~\verb/==>/~~ \{ ~~\(cmd\)~~ \}
+\begin{note}
+An event of the form
+\begin{alltt}
+        \(port \)       \texttt{==>} \{ \(cmd\) \}
+\end{alltt}
+has an implicit guard of \SCALA{true}
+\end{note}
+\begin{itemize}
+\item is said to be \textit{enabled}, if $port$ is open and $guard$ evaluates to true
+\item is said to be \textit{ready} if $port$ is ready to read
+\item is \textit{fired} by executing its $cmd$ (which is expected to read $port$)
+\end{itemize}
+\vfill
+\item Its $(guard)$ may be omitted when identically \SCALA{true}
+\vfill
+\item When an \SCALA{alt} is applied:
+\begin{itemize}
+\item its event guards are evaluated, and then
+\item the current thread waits until (at least one) enabled event is ready, and then
+\item one of the ready events is chosen nondeterministically, and fired
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Artificial example: a simple message tagger
+\begin{smaller}
+\begin{itemize}
+\item Reads messages from one of two InPorts
+\item Outputs messages ``tagged'' with the number of the port they arrived on
+\item Terminates when they have both closed, or if the outport closes
+\begin{note}
+The \SCALA{repeat} construct interacts with channel I/O and \SCALA{alt}.
+It terminates on an I/O failure caused by an attempt to read from or write to
+a closed channel or an \SCALA{alt} abort caused by no channels being open.
+\end{note}
+\end{itemize}
+\end{smaller}
+\vfill
+\begin{hideobj}{csoexamples/Tagger}
+package csoexamples
+
+object Tagger
+{ import ox.CSO._
+  
+\end{hideobj}
+\begin{obj}{}
+  def tagger[T](l: ?[T], r: ?[T], out: ![(int, T)]) = proc
+  { repeat
+    {    alt ( l  ==> { out!(0, l?) }
+             | r  ==> { out!(1, r?) }
+             )()
+    }
+    ( proc {l.closein} || proc {r.closein} || proc {out.closeout} )()  
+  }
+\end{obj}
+\begin{note} 
+The following is a very simple test of the tagger (\SCALA{csoexamples.Tagger2}).
+
+\begin{obj}{}
+  def main(args: Array[String])
+  { val l, r = OneOne[String]
+    val o    = OneOne[(int, String)]
+    (  tagger(l, r, o)
+    || proc { for (s <- args) { r!s; sleep(10) }; r.close }
+    || proc { for (s <- args) l!s; l.close }
+    || ox.cso.Pipe.console(o)
+    )()
+  }
+\end{obj}
+\end{note}
+\begin{hideobj}{}
+}
+\end{hideobj}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Example using guards: this ensures that neither channel gets too far ahead of the other
+\vfill
+\begin{hideobj}{csoexamples/Tagger2}
+package csoexamples
+
+object Tagger2
+{ import ox.CSO._
+  
+\end{hideobj}
+\begin{obj}{}
+  def tagger[T](l: ?[T], r: ?[T], out: ![(int, T)]) = proc
+  { var diff = 0
+    repeat
+    {   alt ( l  (!r.open || diff<5 )  ==> { out!(0, l?); diff+=1 }
+            | r  (!l.open || diff> -5) ==> { out!(1, r?); diff-=1 }
+            )()
+    }
+    ( proc {l.closein} || proc {r.closein} || proc {out.closeout} )()  
+  }
+\end{obj}
+\begin{note} 
+The following is a very simple test of the guarded tagger (\SCALA{csoexamples.Tagger2}).
+
+\begin{obj}{}
+  def main(args: Array[String])
+  { val l, r = OneOne[String]
+    val o    = OneOne[(int, String)]
+    (  tagger(l, r, o)
+    || proc { for (s <- args) { r!s; sleep(10) } ; r.close }
+    || proc { for (s <- args) l!s; l.close }
+    || ox.cso.Pipe.console(o)
+    )()
+  }
+\end{obj}
+\end{note}
+\begin{hideobj}{}
+}
+\end{hideobj}
+
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item The guards are evaluated every time the \SCALA{alt} is applied
+\vfill
+\begin{itemize}
+\item An \SCALA{alt} object chooses successive ready events to fire in 
+      ``near-round-robin'' order
+\begin{itemize}
+\item (this is probably the simplest form of fairness achievable)
+\end{itemize}
+\begin{note}
+\begin{itemize}
+\item Successive invocations of the same alt object with the 
+      same ready channels will chose distinct events 
+      to fire when that is possible.
+\item This is about as ``fair'' as can be achieved without a good
+      deal of implementation complexity
+\end{itemize}
+\end{note}
+\vfill
+\vfill
+\item A \SCALA{prialt} is like an \SCALA{alt}, but always gives priority to events in
+      order $ev_1, ev_2, ... ev_n$
+\begin{note}
+Note that \SCALA{prialt} is a subclass of \SCALA{alt}; so all the methods of
+an \SCALA{alt} that we describe below, are also methods of \SCALA{prialt}.
+\end{note}
+\begin{itemize}
+\item (this can give rise to ``starvation'' of the later events)
+\end{itemize}
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{Warning}
+
+\begin{itemize}
+\item There is a significant difference between the apparently similar
+\begin{scala}
+
+        val a = alt ( ev1 | ev2 | ... ); repeat { a() }
+\end{scala}
+and
+\begin{scala}
+        repeat { alt ( ev1 | ev2 | ... )() }
+\end{scala}
+\vfill
+\begin{itemize}
+\item In the former the \SCALA{alt} called $a$ is constructed once, and implements 
+      near-round-robin choice
+\vfill
+\item In the latter an \SCALA{alt} is constructed anew in every iteration
+\item[] \textit{so it has no memory of the previously selected ready event}
+\item[] \textit{and cannot implement any kind of fair choice policy}
+\item[] \textit{This gives rise to the potential for \textbf{starvation} of the later events}
+\begin{note}
+In our implementation, the latter behaves like (but is somewhat less efficient than)
+\begin{scala}
+        val a = prialt ( ev1 | ev2 | ... ); repeat { a() }
+\end{scala}
+\end{note}
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Repeated \SCALA{alt}s and \SCALA{prialt}s appear frequently so we introduce new notation
+
+\begin{scala}
+
+        alt ( ev1 | ev2 | ... ) repeat;
+        
+\end{scala}
+that behaves like
+\begin{scala}
+
+        val a = alt ( ev1 | ev2 | ... ); repeat { a() }
+\end{scala}
+\vfill
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Handling Closed Channels 
+\begin{itemize}
+\item If $a~$ is an \SCALA{alt}, then: $a~$\SCALA{onclosed}$~\{ ...\}$ returns $a$ 
+\item but $a()$ now executes $\{ ...\}$ if all events' channels are closed
+\end{itemize}
+\vfill
+\item Handling Timeouts
+\begin{itemize}
+\item If $a~$ is an \SCALA{alt}, then: 
+      $a~$\SCALA{before}$~deadline~$\SCALA{ontimeout}$~~\{ ...\}$ returns $a$ 
+\item but $a()$ now executes $\{ ...\}$ if no event is fired before $deadline$ ms elapse
+\vfill
+\item $a~$\SCALA{before}$~deadline$ behaves exactly like
+      $a~$\SCALA{before}$~deadline~$\SCALA{ontimeout}$~~$\SCALA{\{ throw new Abort \}}
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{Detecting peer failure}
+\vfill
+\begin{itemize}
+\item Problem: a process $A$ needs to know whether a peer process $B$ has failed
+\\ (may be important when they run on different hosts or JVMs)
+\item Solution: send heartbeat messages between them
+\item Refinement: piggyback these messages on their data channel
+\vfill
+\begin{itemize}
+\item Messages are either data or heartbeats (ping) 
+\item Transmitter relays data to receiver, injecting pings when necessary
+\vfill
+\begin{smaller}
+\begin{verbatim}                                                                                            
+          +-------------+                            +------------+
+          |             |        Ping                |            |
+?[T] ---->| transmitter |--------------------------->|  receiver  |-----> ![T] 
+      to  |             |        Data(T)             |            |
+          +-------------+                            +------------+
+                                                            |    
+                                                            |    fail
+                                                            +-----------> !()
+\end{verbatim}
+\end{smaller}
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Message representation
+\begin{scala}
+  trait Message
+  case  object  Ping             extends Message {}
+  case  class   Data[T](data: T) extends Message {}
+\end{scala}
+\vfill
+\begin{scala}
+  def transmitter[T](pulse: long, from: ?[T], to: ![Message]) = 
+  proc 
+  { alt ( from ==> { to!Data(from?) }
+        ) before pulse ontimeout { to!Ping } repeat;
+  } 
+\end{scala}
+\vfill
+\begin{itemize}
+\item Transmitter 
+\begin{itemize}
+\item sends messages at intervals no longer than $pulse$
+\item sets a deadline of $pulse$ for reading from $from$
+\item sends a ping if the deadline is missed
+\end{itemize}
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item []
+\begin{scala}
+  def receiver[T](pulse: long, from: ?[Message], to: ![T], fail: ![Unit]) = 
+    proc 
+    { alt (from ==>
+           { from ? match
+             { case Ping      => ()
+               case Data(d:T) => to!d
+             }
+           }
+          ) before pulse ontimeout { fail!() } repeat;
+    }
+\end{scala}
+\vfill
+\begin{itemize}
+\item Receiver 
+\begin{itemize}
+\item expects messages at intervals no longer than $pulse$; discards pings
+\item sends a failure message if nothing arrives by the deadline
+\item $pulse$ should be slightly longer than transmitter $pulse$
+\end{itemize}
+\end{itemize}
+\end{itemize}
+\begin{note}
+We have omitted the details of channel closing.
+\end{note}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item \SCALA{alt}s (and \SCALA{prialt}s) can be constructed from collections of events
+\item Here, for example, is a generalization of the tagger (\SCALA{csoexamples.MultiTagger.tagger})
+\vfill
+\begin{hideobj}{csoexamples/MultiTagger}
+package csoexamples
+
+object MultiTagger
+{ import ox.CSO._
+  
+\end{hideobj}
+\begin{obj}{}
+  def tagger[T](ins: Seq[?[T]], out: ![(int, T)]) : PROC = proc
+  { alt ( 
+        | (for (i<-0 until ins.length) yield ins(i) ==> { out!(i,ins(i)?) })
+        ) repeat;    
+    (|| (for (in <- ins) yield proc {in.close})
+     || proc {out.close} 
+    )()  
+  }
+\end{obj}
+\begin{note} 
+The following is a simple test of the generalized tagger.
+
+\begin{obj}{}
+  def main(args: Array[String])
+  { val ins = OneOne[String](6)
+    val out = OneOne[(int, String)]
+    (  tagger (ins, out)
+    || || (for (in <- ins) yield proc { for (s <- args) in!s; in.close })
+    || ox.cso.Pipe.console(out)
+    )()
+  }
+\end{obj}
+\end{note}
+\begin{hideobj}{}
+}
+\end{hideobj}
+\vfill
+\item Failure
+\begin{itemize}
+\item An \SCALA{alt}, $a$, throws an \SCALA{Abort} exception if no events are 
+      enabled when  $a()$ is evaluated 
+\item[] So, in the above case, closure of all input channels 
+        will terminate the \SCALA{repeat}ed \SCALA{alt}
+\begin{note}
+\SCALA{Abort} is a subclass of \SCALA{Stop}.
+\end{note}
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Performance
+\begin{itemize}
+\item An \SCALA{alt} takes time proportional to its number of events (the constant is small)
+\item It is essential to use an \SCALA{alt} in situations 
+\begin{itemize}
+\item where the events' ports determine the details of command to be executed on input 
+\item where the events' ports are not of the same type 
+\begin{note}
+the latter situation is, of course, subsumed by the former
+\end{note}
+\end{itemize}
+\end{itemize}
+\vfill
+\item Communication on \SCALA{ManyOne} ports can be more efficient
+\begin{note}
+The fairness of our (very simple) implementation of \SCALA{ManyOne} depends critically
+on the underlying scheduling algorithm. 
+\end{note}
+\item[]But consider the following alternative tagger implementation:
+\begin{hideobj}{csoexamples/AltMultiTagger}
+package csoexamples
+
+object AltMultiTagger
+{ import ox.CSO._
+  
+\end{hideobj}
+\begin{obj}{}
+  def tagger[T](ins: Seq[?[T]], out: SharedOutPort[(int, T)]) : PROC = proc
+  { || (for (i<-0 until ins.length) yield 
+             proc { repeat { out!(i,ins(i)?) }; ins(i).close }) ()    
+    out.close  
+  }
+\end{obj}
+\item[Q:] Is the above trade of processes for \SCALA{alt} time worthwhile?
+\item[A:] Here it probably isn't; think of the context-switching overhead!
+\end{itemize}
+\begin{note} 
+The following is a simple test of the generalized tagger.
+
+\begin{obj}{}
+  def main(args: Array[String])
+  { val ins = OneOne[String](16)
+    val out = ManyOne[(int, String)]
+    (  tagger (ins, out)
+    || || (for (in <- ins) yield proc { for (s <- args) in!s; in.close })
+    || ox.cso.Pipe.console(out)
+    )()
+  }
+\end{obj}
+\end{note}
+\begin{hideobj}{}
+}
+\end{hideobj}
+\begin{ex**}{A simple multiplexer}
+Design  \textit{multiplexer} and \textit{demultiplexer}
+components that permit a single channel to be used
+to carry traffic that originates on $n$ input ports 
+(at the multiplexer end) and is consumed (at the
+demultiplexer end) by processses reading from $n$ 
+output ports.
+
+To be precise, the process
+\begin{scala}
+        val in1, in2, ... out1, out2, ... channel = OneOne[T]
+        (  multiplex  (channel, List(in1,  in2, ... ))
+        || demultiplex(channel, List(out1, out2, ...))
+        || producer1(in1)
+        || producer2(in2)
+        || ...
+        || consumer1(out1)
+        || consumer2(out2)
+        || ...
+        )
+\end{scala}
+
+should behave like the process
+
+\begin{scala}
+        val chan1, chan2, ... = OneOne[T]
+        (  producer1(chan1) || consumer1(chan1) || ...
+        || producer2(chan2) || consumer2(chan2) || ...
+        )         
+\end{scala}
+
+You may assume that the consumer processes never refuse the opportunity to
+do input, and you need not worry about ``fair'' use of the multiplexed channel.
+\end{ex**}
+\end{slide}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{The Dining Philosophers}
+\vfill
+\begin{itemize}
+\item The story:
+\begin{itemize}
+\item 5 philosphers spend their lives thinking and eating.
+\item They share a common dining room, which has a circular table with 5 chairs 
+      around it, a plate in front of each chair, and a big bowl of spaghetti in the middle.
+\item There are  5 forks -- placed between the 5 plates at the table.
+\item After thinking for a while a philosopher gets hungry, enters the room, 
+      sits in her chair, then picks up the
+      fork to her left as soon as it's available, then picks up the fork 
+      to her right as soon as it's available.
+\item Once she has two forks, she serves herself and spends some time eating.
+\item Then she puts the forks down and leaves the room to do some more thinking.
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Illustration}
+\begin{slide}
+\begin{center}
+\pdffig[width=7.5in]{IMAGES/dining}
+\end{center}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item The key problems posed abstractly: 
+\begin{itemize}
+\item clearly at most 2 philosphers can eat at a time
+\item if all five enter the room and pick up their left forks then they all starve 
+\item if some are greedy then others may starve
+\end{itemize}
+\vfill
+\item The challenges:
+\begin{itemize}
+\item  program a simulation using the CSO kit
+\item  demonstrate that the unmodified system can deadlock
+\item  modify the system so that philosophers don't starve
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item A model of the system as described
+\begin{itemize}
+\item Each philosopher has a channel to her 2 surrounding forks \texttt{(left, right)}
+\item She repeatedly thinks, enters the room, picks up her forks, eats, then leaves
+\item Each fork has a channel to its 2 surrounding philosophers \texttt{(left, right)}
+\item It is on the table or held by its left philosopher or its right philosopher
+\item The door to the room is a shared channel
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item The simulation: philosophers
+\begin{obj}{csoexamples/dphil}
+package csoexamples; import ox.CSO._
+
+object dphil
+{ type Msg    = (int, String) 
+  type Msgs   = Chan[Msg]
+  def  EAT    = sleep(100)
+  def  THINK  = sleep(10)
+  def  PAUSE  = sleep(10)
+  
+  def phil(me:int, left: Msgs, right: Msgs, room: Msgs) = proc ("phil"+me)
+  { while (true) { THINK
+                   room !(me, "enter"); left !(me, "take")
+                   PAUSE
+                   right!(me, "take")
+                   EAT
+                   left !(me, "drop"); right!(me, "drop")
+                   room !(me, "leave")
+                 }
+  }
+\end{obj}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item The simulation: forks
+\begin{obj}{}
+  def fork(me:int, left: Msgs, right: Msgs) = proc ("fork"+me)
+  { alt ( left  ==> { left?;  left?;  () }
+        | right ==> { right?; right?; () }
+        ) repeat
+  }
+}
+\end{obj}
+\begin{comment}
+\vfill
+\item Here we are using alternative, CSP-like, notation for events and input commands, defined by:
+\begin{note}
+We've used the alternative notations simply for variety; not because it's
+essential to do so. Of course the notation looks just a little bit more like process
+algebra notation....
+\end{note}
+$$
+\begin{array}{rcl}
+channel (guard) \Longrightarrow function &~~~~~\hat{=}~~~~~& 
+  channel (guard) \Longrightarrow \{~ function(channel?) ~\}
+\\
+channel  \Longrightarrow function &~~~~~\hat{=}~~~~~& 
+  channel  \Longrightarrow \{~ function(channel?) ~\}
+\\
+channel \mathrel{?} function &~~~~~\hat{=}~~~~~& function(channel?) 
+\end{array}
+$$
+\end{comment}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+
+\item The whole simulation -- first attempt
+\vfill
+\begin{hideobj}{csoexamples/sim1}
+package csoexamples
+import  ox.CSO._
+import  dphil._ 
+import  ox.cso.Components._
+\end{hideobj}
+\begin{obj}{}
+object sim1
+{ val left, right  = OneOne[Msg](5) // (as seen from the forks)
+  val room         = ManyOne[Msg]
+  
+  def main(args: Array[String]) =
+  { (  || (for (i<-0 until 5) yield phil(i, right(i),  left((i+4)%5), room))
+    || || (for (i<-0 until 5) yield fork(i, left(i),   right(i)))
+    || console(room)
+    )()
+  }
+}
+\end{obj}
+\vfill
+
+\item[Q:] Must this simulation always deadlock?
+\item[A:] No. Whether or not it deadlocks depends on the scheduler.
+\vfill
+\item[Q:] Under what circumstances does it deadlock?
+\item[A:] When there are five philosophers in the room, each with a fork in their left hand
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Second attempt: allow no more than 4 philosophers in the room at once
+\item Tempting to have the door to the room manage this
+\item An abstract design for such a door (in process algebra) might look like
+\vfill
+\begin{scala}
+   door(n) = if n<4 then { room.enter -> door(n+1) 
+                         | room.leave -> door(n-1)
+                         }
+             else        { room.leave -> door(n+1) }
+\end{scala}
+\vfill
+\item But CSO doesn't let us reject messages on the basis of their content; so the following 
+      won't do:
+\begin{note}
+Even if it were compileable, the partial function \SCALA{\{ case (_, "leave") => n=n-1 \}}
+would cause an exception if an enter message were sent when $4\le n$.
+\end{note}
+\vfill
+\begin{scala}
+   var n=0
+   while (true)
+   if (n<4) { room?{ case (_, "enter") => n=n+1 ;
+                     case (_, "leave") => n=n-1 }
+            }
+   else     { room?{ case (_, "leave") => n=n-1 } }
+\end{scala}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Resolution: 
+\vfill
+\begin{itemize}
+\item shared channels monitor entry and exit; entry guarded by constraint on numbers
+\end{itemize}
+\begin{scala}
+  ...
+  val  enter, leave = ManyOne[int]
+      
+  (|| (for (i<-0 until 4) yield phil(i, right(i),  left((i+4)%5), enter, leave))
+   || || (for (i<-0 until 5) yield fork(i, left(i),   right(i)))
+   || proc
+      { var n=0
+        alt ( enter (n<4) ==> { enter?; n=n+1 } | leave  ==> { leave?; n=n-1 } ) repeat 
+      }
+  )()
+ \end{scala}
+\vfill
+\item philosophers rewritten accordingly
+\begin{scala}
+    type Door = ManyOne[int]
+    def phil(me:int , left: Msgs, right: Msgs, enter: Door, leave: Door) = ...
+\end{scala}
+\vfill
+\vfill
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Alternative resolution (without shared channels)
+\begin{center}
+\pdffig[width=5.5in]{IMAGES/diningroom}
+\end{center}
+\vfill
+\item The room has 5 doors, each with two sides
+\item The room process is a repeated \SCALA{alt}
+\end{itemize}
+\begin{exercises}
+
+\begin{ex**}{Solving the Dining Philosophers with and without shared Channels}
+Program up the details of both Dining Philosophers solutions that 
+monitor numbers present in the room. The philosopher processes should
+be identical. Monitor the progress of the simulation
+on the console. If you have time, investigate what happens if 
+you use a buffer of size one instead of a ManyOne channel
+in the implementation of the door.
+\begin{ans}
+Here is the solution that uses the shared channels. We use a few existing definitions.
+\begin{obj}{csoexamples/simManyOne}
+package csoexamples
+import  ox.CSO._
+import  dphil._
+import  ox.cso.Components._
+
+object simManyOne
+{ val left, right   = OneOne[Msg](5) // (as seen from the forks)
+  val enter, leave  = ManyOne[int]
+  val out = OneOne[Msg]
+  
+  def main(args: Array[String]) =
+  { (  || (for (i<-0 until 5) yield phil(i, right(i),  left((i+4)%5), enter, leave))
+    || || (for (i<-0 until 5) yield fork(i, left(i),   right(i)))
+    || proc
+       { var n=0
+         alt ( enter (n<4) ==> { out!(enter?, "enter"); n=n+1 } 
+             | leave       ==> { out!(leave?, "leave"); n=n-1 } 
+             ) repeat 
+       }
+    || console(out)
+    )()
+  }
+  
+  type Door = ![int]
+  def phil(me:int , left: Msgs, right: Msgs, enter: Door, leave: Door) = proc
+  { while (true)
+    { THINK
+      enter!me; left !(me, "take"); PAUSE; right!(me, "take")
+      EAT; 
+      left !(me, "drop"); right!(me, "drop"); leave!me
+    }
+  }  
+}
+\end{obj}
+\end{ans}
+\begin{ans*}
+Here is the solution that uses non-shared channels.
+\begin{obj}{csoexamples/simOneOne}
+package csoexamples
+import  ox.CSO._
+import  dphil._ 
+import  simManyOne.phil
+import  ox.cso.Components._
+
+object simOneOne
+{ val left, right   = OneOne[Msg](5) // (as seen from the forks)
+  val enter, leave  = OneOne[int](5)
+  val out = OneOne[Msg]
+  
+  def main(args: Array[String]) =
+  { (  || (for (i<-0 until 5) yield phil(i, right(i),  left((i+4)%5), enter(i), leave(i)))
+    || || (for (i<-0 until 5) yield fork(i, left(i),   right(i)))
+    || proc
+       { var n=0
+         alt ((for (i<-0 until 5) yield
+                   (enter(i)(n<4) ==> { out!((enter(i)?, "enter")); n=n+1 })) 
+             ++ 
+              (for (i<-0 until 5) yield
+                   (leave(i)      ==> { out!((leave(i)?, "leave")); n=n-1 })) 
+             ) repeat 
+       }
+    || console(out)
+    )()
+  }   
+}
+\end{obj}
+\end{ans*}
+\begin{ans*}
+The program usually runs for a while and then deadlocks. The
+problem is that a philospher who believes she has entered
+the room will pick up her left fork. Belief that she's
+entered the room stems from having succeeded in writing to
+her \texttt{enter} channel. That write can succeed before
+the room/door does a corresponding \texttt{read}, and deadlock can 
+(sometimes) happen in this case when there are already 4 
+philosophers in the room.
+\end{ans*}
+\end{ex**}
+\begin{ex**}{Preventing the deadlock by introducing asymmetry}
+There is a very simple way of preventing the deadlock inherent
+in our original simulation, namely by making it
+impossible to set up a cycle of philosophers each holding
+a fork in the same hand. Rewrite the main method of the \SCALA{phil} 
+module to achieve this. 
+\begin{ans}
+The following does the trick. Philosopher 4 picks up the fork on his right first.
+\begin{obj}{csoexamples/simAsym}
+package csoexamples
+import  ox.CSO._
+import  dphil._ 
+import  ox.cso.Components._
+
+object simAsym
+{ val left, right  = OneOne[Msg](5) // (as seen from the forks)
+  val room         = ManyOne[Msg]
+  
+  def main(args: Array[String]) =
+  { (  || (for (i<-0 until 4) yield phil(i, right(i),  left((i+4)%5), room))
+    || || (for (i<-4 until 5) yield phil(i, left((i+4)%5), right(i),  room))
+    || || (for (i<-0 until 5) yield fork(i, left(i),   right(i)))
+    || console(room)
+    )()
+  }
+}
+\end{obj}
+\end{ans}
+\end{ex**}
+\begin{comment}
+\begin{ex**}{An open-ended practical problem}
+The philosophers work in a university whose Vice-Chancellor (President)
+is keen to see that they all do their fair share of thinking, and who
+is just enlightened enough to realize that he cannot allow them to get
+too hungry.  He appoints a highly paid Pro Vice-Chancellor for Internal
+Affairs whose job it is to measure the amount of thinking and eating
+they do, and to make periodic reports to the Vice-Chancellor.
+
+This paragon of administrative excellence needs to send messages to each
+philosopher from time to time asking how much thinking they have done,
+and how much eating they have done. He is also supposed to notice if
+the system as a whole has deadlocked, and warn his master. In order
+to do this he appoints a secretary who the philosophers must contact from time
+to time. If the secretary doesn't hear from anybody for a while, then
+the Pro Vice-Chancellor must be informed.
+
+By making suitable changes to the philosophers and adding whatever other
+processes you feel necessary build a model of this new system.
+\end{ex**}
+\end{comment}
+\end{exercises}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{Hunger and Starvation}
+\vfill
+\begin{itemize}
+\item Problems
+\begin{itemize}
+\item a philosopher may have to wait a very long time to eat
+\item a philosopher may \textit{still} never get to eat if her neighbours are greedy
+\begin{note}
+... or if the scheduler is capricious!
+\end{note}
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{Waiting Chains}
+\vfill
+\begin{itemize}
+\item The following permissible sequence of events
+\begin{verbatim}
+        Phil 4 gets both forks
+        Phil 3 gets its left and waits
+        Phil 2 gets its left and waits
+        Phil 1 gets its left and waits
+\end{verbatim}
+
+generates the \textit{waiting chain}: 
+    $1\rightarrow 2 \rightarrow 3\rightarrow 4$
+    
+\item Processes in the waiting chain $must$ acquire their second forks sequentially
+\item Worst-case wait-for-fork is proportional to the maximal length of the waiting chain
+\begin{note}
+In an $n$-philosopher system, the maximal waiting chain length is $n-2$
+\end{note}
+\item Can we reduce the maximal wait by programming the philosophers differently?
+\item Can we make the maximal wait independent of the number of philosophers?
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Solution uses queuing within forks
+\begin{itemize}
+\item Forks have acquisition request queues of length 2
+\item A philosopher requests a fork by sending it a channel 
+\item The fork writes back down this channel when it's available
+\item Fork then awaits a message on its release channel
+\item Odd philosophers seek left fork first; even philosophers seek right fork first
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Liveness argument 
+\begin{itemize}
+\item a fork is either the first to be acquired by BOTH its philosophers, or the second
+\item[] \textit{ergo} maximum length of a waiting chain is 2
+\item no more than 2 philosophers can wait to acquire each fork, but no more than 2 can try
+\item[] \textit{ergo} fork acquisition phase cannot deadlock
+\item Forks are eventually released by their users
+\end{itemize}
+\vfill
+\item Non-exclusion 
+\begin{itemize}
+\item follows from first-come first-served treatment of fork acquisition
+\begin{note}
+The mathematical details of these arguments are covered in Chapter 11 of
+Nancy Lynch's book: \textit{Distributed Algorithms} (ISBN: 1-55860-348-4). They require a good
+deal of focussed attention to master.
+\end{note}
+\end{itemize}
+\begin{ex**}{Queueing Philosophers}
+Implement the philosophers-queue-in-forks solution to the problem of starvation.
+\begin{ans}
+Here's the fork process scheme. Note that during the period
+between its acquisition (\SCALA{(buf?)!()}) and release (\SCALA{rel!()})
+this is ready to accept another request on \SCALA{acq}.
+\begin{scala}
+  def fork(me: int, acq: ?[![Unit]], rel: ?[Unit]) = 
+  { val buf = OneOne[![Unit]]
+    copy(acq, buf) || proc { repeat { (buf?)!(); rel? }}
+  }
+\end{scala}
+Here's the philosopher process scheme. A philosopher's
+ports connect her to the first and second forks (respectively) that 
+she is to acquire.
+\begin{scala}
+  def phil(me: int, acq1: ![![Unit]], rel1: ?[Unit],
+                    acq2: ![![Unit]], rel2: ?[Unit]
+          ) = proc
+  { val resp1, resp2 = OneOne[Unit]
+    repeat
+    { THINK
+      acq1!resp1
+      acq2!resp2
+      (proc { resp1?  } || proc { resp2?  })()
+      EAT
+      (proc { rel1!() } || proc { rel2!() })()
+    }
+  }
+\end{scala}
+\end{ans}
+\end{ex**}
+\begin{ex**}{Car Parking}
+A car-park has $En$ entrances and $Ex$ exits; all controlled by
+lifting barriers.  It has room for $V$ cars. 
+
+Each barrier has a proximity sensor on each side of it that
+continually monitors the space near it for the presence of a
+vehicle, and sends an appropriate signal ($Present$, or
+$Absent$) whenever it detects the presence of a vehicle when
+nothing has been present, or the absence of a vehicle after
+one has been present.
+
+Barriers are controlled by sending them the signals $Raise$ and $Lower$.
+
+Design and build a system to monitor the arrival and departure
+of cars and control the barriers so that the car-park
+never becomes over-full. Explain what steps you have
+taken to make the system behave ``fairly'' when the car park is
+near its capacit, and also what you mean by ``fair''.
+
+How would you simulate the arrival and departure of cars?
+\end{ex**}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\heading{Transmitting Objects over Channels}
+\begin{itemize}
+\item The use of channels by processes has to be constrained (to permit reasoning)
+\begin{itemize}
+\item The \SCALA{OutPort} of a \SCALA{One-X} be used only by one process at a time
+\item[] (likewise the \SCALA{InPort} of an \SCALA{X-One}) 
+\item Typical \textbf{occam} compilers enforce ``design rules''
+\item[] (statically-checkable sufficient conditions for non-sharing)
+\end{itemize}
+\vfill
+\item Hitherto we have transmitted only \textit{values} (or immutable objects) down channels
+\item Transmitting \textit{mutable objects} requires stronger design rules, because:
+\begin{itemize}
+\item Both sender and recipient have a reference to the object
+\item In principle either could call methods that change the object
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Example (artificial)
+\begin{scala}
+  val chan = OneOne[Thing]  
+  (   proc { val t = new Thing; chan!t; ... ; t.change; ... } 
+   || proc { val u = chan?; ...; u.use ; ... }
+  )()       
+\end{scala}
+\vfill
+\item There is a RACE HAZARD here
+\begin{itemize}
+\item The top and bottom processes synchronise at \SCALA{?!}
+\item Thereafter each can be scheduled at any time
+\item The \SCALA{u.use} may happen before or after the \SCALA{t.change}
+\item The same hazard exists even if \SCALA{use} and \SCALA{change} are swapped
+\end{itemize}
+\vfill
+\item Design rules (or implementation) must achieve the following goal
+\begin{itemize}
+\item   If a process at one end of a channel modifies an object that the channel transmits
+\item[] then the process at the other end can no longer use that object
+\end{itemize}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item One, expensive, solution is ``copy on transmit'' (``send by value'')
+\item It is essential to use this for transmitting objects between distinct hosts
+\vfill
+\item Simplest sufficient conditions for a cheaper solution are based on ``ownership''
+\begin{itemize}
+\item An object is owned by no more than one process
+\item Ownership is transmitted with the object
+\item The methods of an object may only be invoked from its owning process
+\end{itemize}
+\vfill
+\item This is a tad too stringent; forbidding ``multi-phase'' use of mutable objects, such as
+\begin{alltt}
+PROCESS A                               PROCESS B
+Create ob
+Modify ob
+Transmit ob                             Receive ob
+Use read-only methods of ob             Use read-only methods of ob
+\end{alltt}
+\end{itemize}
+\end{slide}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{slide}
+\begin{itemize}
+\item Refinements of ``ownership'' involve 
+\begin{itemize}
+\item rethinking channel/port types a little,
+\item and possibly rethinking !? protocols a little
+\end{itemize}
+\begin{note}
+We are straying onto the terrain of programming language design,
+here.  It would be interesting to explore the idea of adding an
+additional dimension of classification of a port (in addition to
+its type), namely whether or not it transfers ownership.
+
+\begin{itemize}
+\item After receiving an object and its ownership a process could
+do anything it wanted to the object. 
+
+\item After sending an object and its ownership down a channel,
+a process would not be able to reference the object again.
+
+\item After sending an object without its ownership down a channel, both sender
+and receiver could use its read-only methods. And we really mean read-only!
+Methods that changed its representation while maintaining the object's 
+abstraction invariant could not be used 
+\textit{unless they were guaranteed to be atomic.}
+\end{itemize}
+\end{note}
+\vfill
+\item[Q:] But what about sending ports/channels down channels?
+\item[A:] Sending an OutPort doesn't preclude reading from the corresponding InPort
+\item[A:] Sending an InPort doesn't preclude writing to the corresponding OutPort
+\end{itemize}
+\end{slide}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\end{document}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

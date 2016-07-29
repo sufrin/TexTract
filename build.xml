@@ -1,0 +1,160 @@
+<?xml version="1.0"?>
+<!-- 
+        $Id: build.xml 73 2016-07-29 15:09:45Z sufrin $ 
+-->
+<project name="Textract"  default="textract">
+
+  <property name="base.dir"      value="${basedir}"         />                
+  <property name="sources.dir"   value="${base.dir}/src"    />  
+  <property name="scala.home"    value="${user.home}/Scala" />
+  <property name=".ant"          value="${user.home}/.ant" />
+
+  <!-- additional ant resources for scala -->
+  <property name="scala.local"  value="${user.home}/ScalaLocal" /> 
+
+  <!-- jars to go on the compilation class path --> 
+  <property name="local.jars"   value="." />  
+  
+  <!-- evanescent directories --> 
+  <property name="build.dir"     value="${base.dir}/BUILD"  />  
+  <property name="tests.dir"     value="${base.dir}/TESTS"  />  
+  <property name="doc.dir"       value="${base.dir}/DOCS"   />  
+
+                  
+  <import file="${.ant}/scalatasks.xml"/>
+
+  <path id="compile.classpath">
+     <path refid="scala.compile.classpath"/>
+     <fileset dir="${local.jars}">
+       <include name="**/*.jar"/>
+       <exclude name="${build.dir}/**/*.jar"/>
+     </fileset>    
+     <fileset dir="${ant.home}/lib">
+       <include name="ant.jar"/>
+     </fileset>     
+  </path>
+  
+    
+  <target name="compile" depends="scalatasks" description="Compile">  
+    <mkdir dir="${build.dir}"/>
+    <scalac srcdir       = "${sources.dir}"
+            destdir      = "${build.dir}" 
+            deprecation  = "on"         
+            unchecked    = "on"         
+            classpathref = "compile.classpath"
+            force        = "changed"
+            >
+       <include name="**/*.scala"/>    
+    </scalac>
+  </target>
+  
+  <target name="scaladoc" depends="scalatasks" description="Run scaladoc on the TexTract source">  
+    <mkdir dir="${doc.dir}"/>
+    <scaladoc
+            srcdir       = "${sources.dir}"
+            destdir      = "${doc.dir}"          
+            classpathref = "compile.classpath"
+            unchecked    = "on"
+            >
+        <include name="**/*.scala"/>      
+    </scaladoc>
+  </target>
+  
+  <target name="jar" depends="compile" description="Make a jar containing the library">
+   <jar destfile = "${build.dir}/textract.jar"       
+        basedir  = "${build.dir}"      
+        includes = "**/*.class"
+        excludes =  "*Test*"/>
+  </target>
+
+  <target name="clean" description="Remove all files from ${build.dir}">
+     <delete dir="${build.dir}" />
+     <delete dir="${doc.dir}"   />
+     <delete dir="${tests.dir}" />
+  </target>
+  
+  <target name="textract" depends="compile" description="Make a java-runnable textract">
+        <makemain name="textract.jar" class="textract"/>
+  </target>
+  
+  <target name="install" depends="textract" description="Install textract in ${.ant} and ${.ant}/lib">
+    <mkdir   dir="${.ant}/lib"/>
+    <copy    file="${build.dir}/textract.jar" todir="${.ant}/lib"/>
+    <echoxml file="${.ant}/textract.xml">
+     <project name="TexTract">
+       <target name="textract" description="Defines textract task">
+        <!-- This expects textract.jar to be in ~/.ant/lib or ${ant.lib} -->
+        <taskdef name="textract"  classname="ant.Textract"/>
+       </target>
+     </project>
+    </echoxml>
+  </target>
+  
+  <!-- Tests: task is defined as ttextract because we may be in an environment where textract is defined -->
+  <target name="test0" description="Test compressed and uncompressed extraction and timestamping">
+    <taskdef name="ttextract"  classpath="${build.dir}/textract.jar" classname="ant.Textract"/>
+    <delete dir="${tests.dir}" />
+    <ttextract legacy="on" root="${tests.dir}/UNC"               file="testinputs/1-occam.tex"/>
+    <ttextract legacy="on" root="${tests.dir}/COM" compress="on" file="testinputs/1-occam.tex">
+      <fileset dir="testinputs" includes="**/*.tex"/>
+    </ttextract>
+    <echo message="Testing timestamping"/>
+    <ttextract legacy="on" root="${tests.dir}/UNC"               file="testinputs/1-occam.tex"/>
+    <ttextract legacy="on" root="${tests.dir}/COM" compress="on" file="testinputs/1-occam.tex"/>
+  </target>
+  
+  <target name="testf" description="Test compressed extraction with filesets">
+    <taskdef name="ttextract"  classpath="${build.dir}/textract.jar" classname="ant.Textract"/>
+    <echo message="Testing nested filesets"/>
+    <ttextract root="${tests.dir}/COM" compress="on">
+      <fileset dir="${base.dir}/testinputs" includes="**/*.tex"/>
+      <fileset dir="${base.dir}/testinputs" includes="**/*.tex"/>
+    </ttextract>
+  </target>
+  
+  <target name="test1" description="Test forcing (uncompressed)">
+    <echo message="Testing forcing"/>
+    <taskdef name="ttextract"  classpath="${build.dir}/textract.jar" classname="ant.Textract"/>
+    <ttextract force="off" root="${tests.dir}/UNC"               file="testinputs/1-occam.tex"/>
+    <ttextract force="on"  root="${tests.dir}/UNC"               file="testinputs/1-occam.tex"/>
+  </target>
+  
+  <target name="test2">
+    <echo message="Testing for Java"/>
+    <ttaskdef name="ttextract"  classpath="${build.dir}/textract.jar" classname="ant.Textract"/>
+    <ttextract force="on" root="${tests.dir}/JAVA/UNC"               file="testinputs/0-intro.tex"/>
+    <ttextract force="on" root="${tests.dir}/JAVA/COM" compress="on" file="testinputs/0-intro.tex"/>
+  </target>
+  
+  <target name="doc" depends="textract" description="Use ant textract and pdflatex to generate TexTract documentation">
+    <echo message="Use pdflatex and the ant textract task to generate a document describing TexTract in detail"/>
+    <taskdef name="ttextract"  classpath="${build.dir}/textract.jar" classname="ant.Textract"/>
+    <ttextract force="on" 
+               root="${build.dir}" 
+               compress="on" 
+               number="on"
+               comments="/.xyz/(*/*)/pqr/(*/*)"
+               file="doc/textract.tex"/>
+    <copy file="doc/textract.tex" todir="${build.dir}"/>
+    <copy file="doc/CopyLeft197.pdf" todir="${build.dir}"/>
+    <copy file="sty/textract.sty" todir="${build.dir}"/>
+    <copy file="sty/listscala.sty" todir="${build.dir}"/>
+    <exec executable="pdflatex" dir="${build.dir}"> 
+          <arg file="${build.dir}/textract.tex"/> 
+    </exec> 
+    <exec executable="pdflatex" dir="${build.dir}"> 
+          <arg file="${build.dir}/textract.tex"/> 
+    </exec> 
+  </target>
+    
+</project>
+
+
+
+
+
+
+
+
+
+
