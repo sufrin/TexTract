@@ -1,0 +1,76 @@
+<project name="ScalaTasks">
+
+   <!--
+        Standard scala tasks together with a few useful macros and path definitions
+   -->
+
+   <target name       ="scalatasks" 
+           description="Define Scala tasks and classpaths" >
+
+      <echo message="DEFAULT ANT SCALATASKS"/>
+            
+      <property name  = "scala-library.jar"       
+                value = "${scala.home}/lib/scala-library.jar" />
+      
+      <path id="scala.compile.classpath">      
+        <pathelement location="${scala-library.jar}"/>
+      </path>
+      
+      <taskdef name="scalac"  classname="ant.ScalaCompilerTask"
+                               classpath="${base.dir}/ScalaCompilerTask.jar"/>
+
+           
+  </target>
+  
+  <macrodef name="makemain">
+     <!--       
+        Make the named jar file from all the compiled files in
+        ${build.dir} and with a class path pointing to the scala
+        library Example: <makemain name="test.jar" class="Test1"/>
+        The resulting jar file is executable from java, but
+        THIS IS NOT A WAY OF BUILDING A CLOSED JAVA PROGRAM
+        because the scala class library will be located differently
+        on different machines.
+     -->
+     <attribute name="name"/>  <!-- Name of the program jar file -->
+     <attribute name="class"/> <!-- Name of the main class -->
+        <sequential>           
+           <jar destfile = "${build.dir}/@{name}"      
+                basedir  = "${build.dir}"      
+                includes = "**/*.class">
+                <manifest>
+                     <attribute name="Main-Class" value="@{class}"/>
+                     <attribute name="Class-Path" value="${scala-library.jar}"/>
+                </manifest>
+           </jar>
+        </sequential> 
+  </macrodef>
+  
+  <macrodef name="makejavamain">
+     <!--       
+        Make the named jar file from all the compiled files in
+        ${build.dir} together with the scala library
+        Example: <makemain name="test.jar" class="Test1"/>
+     -->
+     <attribute name="name"/>  <!-- Name of the program jar file -->
+     <attribute name="class"/> <!-- Name of the main class -->
+        <sequential>
+           <delete file="${build.dir}/@{name}"/>
+           <copy file ="${scala-library.jar}" toFile="${build.dir}/@{name}"/>  
+           <jar destfile = "${build.dir}/@{name}"      
+                basedir  = "${build.dir}" 
+                update   = "on"     
+                includes = "**/*.class">
+                <manifest>
+                     <attribute name="Main-Class" value="@{class}"/>
+                </manifest>
+           </jar>
+        </sequential> 
+  </macrodef>
+
+</project>
+
+
+
+
+

@@ -1,5 +1,47 @@
 \documentclass[a4paper]{article}
 \usepackage{hyperref,textract,pdffig,xspace,txfonts,verbatimstyle,listscala,alltt,rotating}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\usepackage{amssymb}
+\usepackage[mathletters]{ucs}
+\usepackage[utf8x]{inputenc}
+%
+%
+% Extra definitions for Unicode characters not in the standard packages
+%
+\makeatletter
+\def\llbracket{[\!\![\;}
+\def\rrbracket{\;]\!\!]}
+\uc@dclc{8258}{default}{\ensuremath\therefore}%
+\uc@dclc{8679}{default}{\ensuremath\Uparrow}%
+\uc@dclc{8718}{default}{\ensuremath\blacksquare}%
+\uc@dclc{8729}{default}{\ensuremath\cdot}%
+\uc@dclc{8792}{default}{\ensuremath\equiv}%
+\uc@dclc{8871}{default}{\ensuremath\models}%
+\uc@dclc{8801}{default}{\ensuremath\equiv}%
+% box components
+\uc@dclc{9472}{default}{\ensuremath TH}%
+\uc@dclc{9474}{default}{\ensuremath LV}%
+\uc@dclc{9484}{default}{\ensuremath TL}%
+\uc@dclc{9488}{default}{\ensuremath TR}%
+\uc@dclc{9492}{default}{\ensuremath BL}%
+\uc@dclc{9496}{default}{\ensuremath BR}%
+
+% wasysym
+\uc@dclc{10003}{default}{\ensuremath\surd}%
+\uc@dclc{10008}{default}{\ensuremath\times}%
+\uc@dclc{9792}{default}{\venus}%
+\uc@dclc{9794}{default}{\mars}%
+\def\guillemotleft{\ensuremath{{{\langle\!\langle}}}}
+\def\guillemotright{\ensuremath{{{\rangle\!\rangle}}}}
+%
+%
+%
+\makeatother
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %
 %       Generate pdf using the doc ant task.
 %
@@ -16,7 +58,7 @@
 
 {{
 \vfill
-\mbox{$Subversion$ $Revision: 70 $}\\
+\mbox{$Subversion$ $Revision: 83 $}\\
 \it \mbox{Copyleft
 \raisebox{-0.6ex}{\pdffig[height=2.5ex]{CopyLeft197}}
 2008}, The Master, Fellows, and Scholars, Christnose College.
@@ -70,9 +112,11 @@ Fr. Saul N. Braindrane\thanks{Saul Braindrane holds
           Christnose College, Oxford.}
 \\
 Bernard Alan Sufrin\thanks{Bernard Sufrin
-is Fellow and Tutor in Computation at Worcester College, Oxford.}
+was Fellow and Tutor in Computation at Worcester College, Oxford from 1982 until 2012 when he retired. 
+He is now Tutor in Computer Science at Magdalen College. The Bernard Sufrin Tutorial Fellowship in
+Computer Science at Worcester College was established in 2018.}
 }
-\date{April 1st, 2008}
+\date{April 1st, 2008 (revised December 2020)}
 \parindent=0pt\parskip=\medskipamount
 
 \begin{document}
@@ -137,7 +181,9 @@ As it happens we use the enormously versatile
 \texttt{listings}\endnote{\texttt{%
 http://www.ctan.org/tex-archive/macros/latex/contrib/listings/}}
 package to define code section markup in \Latex, but you don't need
-to if you have something better.
+to if you have something better; and we have recently adapted \TexTract
+for use with the differently-versatile \texttt{fancyvrb} (see 
+the appendix).
 
 We call this demiliterate programming because the markup and code
 extraction details are less than half as hard to master as those
@@ -868,7 +914,49 @@ In legacy processing mode many bets are off. Code blocks take one of the forms
 \end{hideobj}
 \end{verbatim}
 \clearpage
+\section{Using \texttt{fancyvrb} instead of \texttt{listings}}
+\TexTract has been adapted to the recently-released (2020) \texttt{fancyvrb} style, 
+which supports (the definition of) a host of very sophisticated verbatim-like environments that do not
+provide for the decoration of programming language keywords, but are completely compatible (as \texttt{listings} is not)
+with UTF8 character encodings. To use \TexTract with  \texttt{fancyvrb} and UTF8 you should 
+\begin{verbatim}
+\usepackage{fancyvrb}
+\usepackage[mathletters]{ucs}
+\usepackage[utf8x]{inputenc}
+\end{verbatim}
+Then, later, for as many different \texttt{code}-style environments as you wish to define, 
+use the appropriate \texttt{fancyvrb} declaration, for example:
+\begin{verbatim}
+\DefineVerbatimEnvironment{code}{Verbatim}{fontsize=\small}
+\end{verbatim}
+and somewhere before the code-like environment(s) you wish to save as files, place a comment
+of the form
+\begin{alltt}
+%%%%%%%%%%%%%%%%%%%%%% [\textit{path or code snippet label}] \textit{ ... anything }
+\end{alltt}
+
+This serves to set the \textit{path} or snippet-label for subsequent code-like environments. 
+When this form of path or snippet-label specification is used, the optional parameter following it is
+ignored by \TexTract so that optional parameters to the \texttt{fancyvrb}-style environments
+can be interpreted properly, \textit{i.e} as \textit{customization specifications}. For example,
+
+\begin{verbatim}
+%%%%%%%%%%% [propositions.hs]
+\begin{code}[frame=single,label=Haskell]
+  data Prop = Atom Atomic         -- a, b ...
+            | Not  Prop           -- not p
+            | Prop `And` Prop     -- p ∧ q
+            | Prop `Or`  Prop     -- p ∨ q
+            | Prop `Imp` Prop     -- p ⇒ q
+            | Prop `Iff` Prop     -- p ⇔ q
+            deriving (Eq)
+\end{code}
+\end{verbatim}
+\clearpage
 \end{document}
+
+
+
 
 
 

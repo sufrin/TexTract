@@ -1,16 +1,17 @@
 
 <!-- 
-        $Id: test.xml 19 2008-04-04 15:39:52Z sufrin $ 
+        $Id: test.xml 78 2017-02-14 17:55:01Z sufrin $ 
         Tests an installed textract
 -->
 <project name="TexTractTest"  default="test">
-  <property name=".ant" value="${user.home}/.ant" />
-  <import file="${.ant}/textract.xml"/>
-  <target name="test" depends="textract">
+  <taskdef classpath="BUILD/textract.jar" classname="ant.Textract" name="textract" />
+
+  <target name="test">
     <textract>
       <fileset dir="." includes="**/*tex"/>
     </textract>
   </target>
 </project>
+
 
 

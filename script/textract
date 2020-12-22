@@ -1,0 +1,2 @@
+scala -cp ~/bin/textract.jar textract "$@"
+

@@ -1,0 +1,283 @@
+\documentclass[11pt]{article}
+\usepackage{RCS,verbatimstyle,fancyvrb}
+\SVN    $Id: prop.tex 72 2012-07-04 22:10:41Z sufrin $
+%
+%
+%
+\usepackage[bottom]{footmisc}
+\usepackage[mathletters]{ucs}
+\usepackage[utf8x]{inputenc}
+%
+% Sanserif blackboard bold
+%
+\RequirePackage[sans]{dsfont}
+\def\mathbb#1{\mathds{#1}}
+%
+%
+%
+\usepackage{japecode}
+\usepackage[colorlinks,linkcolor=blue,filecolor=blue]{hyperref} 
+%
+%
+%
+\title{Propositional Logic and Proof \\\textit{via}\\ Functional Programming}
+\author{Bernard Sufrin\thanks{Oxford University Computer Science Department}}
+\date{Hilary Term, 2013}
+%
+%
+%
+\DefineVerbatimEnvironment{code}{Verbatim}{}
+
+\parindent=0pt\parskip=\medskipamount
+%
+%
+%
+\begin{document}
+\maketitle
+\begin{abstract}
+\noindent In these notes we give an account of the
+development of a simple \textit{proof assistant} for
+propositional logic. Our intention is to demonstrate a useful way of
+thinking about propositions and proofs as data structures.
+\end{abstract}
+
+\tableofcontents
+
+\newpage
+\section{Introduction}
+
+\section{Propositions}
+
+\subsection{Representation}
+We represent propositions as recursive data type. The
+comment by each constructor is an example of the notation
+used to write that kind of proposition.
+
+%%[propositions.hs]
+\begin{code}[frame=single,label=Haskell]
+module Propositions where
+  
+  ... Import types classes and functions from the Prelude
+
+  data Prop = Atom Atomic         -- a, b ...
+            | Not  Prop           -- not p
+            | Prop `And` Prop     -- p ∧ q
+            | Prop `Or`  Prop     -- p ∨ q
+            | Prop `Imp` Prop     -- p ⇒ q
+            | Prop `Iff` Prop     -- p ⇔ q
+            deriving (Eq)
+\end{code}
+
+\subsection{Haskell notation}
+We want to make it convenient to write propositions in Haskell itself; so we 
+define Haskell operator symbols corresponding to appropriate
+constructors of the \textsf{Prop} type, and give them conventional
+syntactic properties.\footnote{It is unfortunate that
+we can do this only for infix operators, for we would
+have liked to use $\lnot$ as a negation symbol; but there is
+no way of defining a \textit{symbolic} prefix operator in Haskell.} 
+
+\begin{code}
+  infixl 9 ∧;  (∧)  = And
+  infixl 8 ∨;  (∨)  = Or
+  infixr 7 ⇒; (⇒)  = Imp
+  infixl 6 ⇔; (⇔)  = Iff  
+  not = Not
+\end{code}
+
+We are not interested in the internal structure of atomic
+propositions, but it will be convenient to represent
+them as single letters. Here we invent Haskell names for a few atomic
+propositions.
+\begin{code}
+  type Atomic = String
+  [a,b,c,d,p,q,r,s] = map (Atom . (:"")) "abcdpqrs"
+\end{code}
+
+
+\subsection{Printing}
+We want propositions to be printed using the same notation
+that we write them in (in Haskell). We declare \textsf{Prop}
+to be an instance of the \textbf{Show} class, and define a
+function \textsf{showProp} that implements
+\textsf{showsPrec} for propositions.
+
+\begin{code}
+  instance (Show Prop) where showsPrec = showProp  
+  showProp::  Int -> Prop -> ShowS
+  showProp d (Atom a)    = showString a
+  showProp d (Not  p)    = showString "not " . showProp 10 p
+  showProp d (p `And` q) = showInfix d 9 9 " ∧ "     p q
+  showProp d (p `Or` q)  = showInfix d 8 8 " ∨ "     p q
+  showProp d (p `Imp` q) = showInfix d 7 6 " ⇒ "    p q
+  showProp d (p `Iff` q) = showInfix d 5 5 " ⇔ "    p q
+\end{code}
+
+The auxiliary function \textsf{showInfix} handles the
+showing of binary composite propositions, and takes account
+of the right-associativity of implication in the usual way,
+namely by giving implication a slightly higher syntactic
+priority on its right than on its left. 
+
+\begin{code}
+  showInfix:: Int -> Int -> Int -> String -> Prop -> Prop -> ShowS
+  showInfix d d' d'' op l r  =  
+            showParen (d>=d') $ 
+            showProp  d' l   .
+            showString op    . 
+            showProp  d'' r
+\end{code}
+
+Here are some examples of propositions
+
+\begin{code}
+  p0 = (a ⇒ b) ⇒ c
+  p1 = a ⇒ b ⇒ c
+  p2 = a ∧ b ⇒ c ∧ d
+  p3 = not a  ∧  b  ⇒  not c  ∧  d
+  p4 = (a ⇒ (b ⇒ c)) ⇒ ((a ⇒ b) ⇒ c)
+  p5 = not p4
+\end{code}
+
+and here's what the Haskell interpreter prints for them. Notice that the redundant
+parentheses on the right of $p4$ are omitted, but that in all other respects 
+the Haskell output was identical to the Haskell input.
+\begin{verbatim}
+  > [p0, p1, p2, p3, p4, p5]
+  [       (a ⇒ b) ⇒ c
+  ,       a ⇒ b ⇒ c
+  ,       a ∧ b ⇒ c ∧ d
+  ,       not a ∧ b ⇒ not c ∧ d
+  ,       (a ⇒ b ⇒ c) ⇒ (a ⇒ b) ⇒ c
+  ,       not ((a ⇒ b ⇒ c) ⇒ (a ⇒ b) ⇒ c)
+  ]
+\end{verbatim}
+
+
+\section{Proof Representation}
+\begin{code}
+  newtype Sequent = [Prop] :|- Prop
+  infix 1 |-
+  infix 1 :|-
+  hyps |- conc = hyps :|- conc
+      
+  instance (Show Sequent) where 
+     show (hyps :|- conc) = showHyps hyps ++ " :|- " ++ show conc
+     
+  data    Proof   = Proven [Proof] Sequent Rule
+                  | Gap
+                  
+  instance (Show Proof) where
+     showsPrec = showProof 
+     
+  showHyps []     = ""
+  showHyps [h]    = show h
+  showHyps (h:hs) = show h ++  ", " ++ showHyps hs
+  
+  showProof :: Int -> Proof -> ShowS
+  showProof level Gap = indentBy level . showString "..."
+  showProof level (Proven subproofs seq rule) =
+            foldAll showSubproof subproofs .
+            indentBy level                 .
+            showsPrec 0 seq                .
+            showString " by "              .
+            showString rule
+            where 
+            showSubproof proof s = showProof (level+1) proof ("\n" ++ s)
+            foldAll f xs ys = foldr f ys xs         
+                  
+  indentBy:: Int -> ShowS
+  indentBy level s = take (2*level) spaces ++ s
+  
+  spaces:: String
+  spaces = ' ':spaces 
+  
+  type Rule = String
+
+  goal1 = [p ⇒ (q ⇒ r)] :|- p ⇒ r
+
+  
+\end{code}
+
+\section{Proof Rules}
+\begin{code}
+{-
+        RULE  "⇒⊢"
+        FROM  Γ       ⊢ A
+        AND   Γ, B    ⊢ C
+        INFER Γ, A⇒B ⊢ C 
+        
+        RULE  "⊢⇒"
+        FROM  Γ, A ⊢ B
+        INFER Γ    ⊢ A⇒B
+-}
+\end{code}
+\begin{code}
+  (∪) = List.union
+  (∩) = List.intersect
+  (ε)  = List.member
+  
+  
+\end{code}
+
+\section{Related Work}
+
+\href{http://pauillac.inria.fr/~leifer/articles/logic/LogicPearl.dvi.gz}
+{Deduction for functional programmers} by James J. Leifer and Bernard Sufrin.
+Journal of Functional Programming, volume 6, number 2, 1996.
+
+This paper was the result of research we did together while James Leifer was an undergraduate 
+in Oxford. It describes a new way of
+teaching formal deductive logic to students familiar with functional
+programming and introduces to them metamathematical ideas by
+exploiting the students' familiarity with freely-generated
+data-structures and their recursion and induction principles.
+
+\href{http://pauillac.inria.fr/~leifer/articles/logic/LogicviaFP.300.ps.gz}
+{Formal logic via functional programming} by James J. Leifer (June 1995).
+Final year dissertation, Oxford University, supervised by
+C.A.R. Hoare and Bernard Sufrin.
+
+This report is a greatly expanded version of the above paper. See
+the
+\href{http://pauillac.inria.fr/~leifer/articles/logic/LogicviaFP.Errata}
+{Errata} list, the Gofer\footnote{Haskell's immediate predecessor}
+\href{http://pauillac.inria.fr/~leifer/articles/logic/LogicviaFP.gs}
+{source-listings} extracted from the document, and the
+\href{http://pauillac.inria.fr/~leifer/articles/logic/LogicviaFP.j} {JAPE
+source-listings} (which are no longer compatible with the
+latest version of JAPE).
+
+\appendix
+\section{Deferred sections of code}
+
+\subsection{... import types classes and functions from the Prelude}
+%%[... import types classes and functions from the Prelude]
+\begin{code} 
+
+  import Prelude(Eq, String, Show, ShowS, Int, 
+                 map, (.), (++), foldr, take, unlines, (>=), (+), (*), ($), 
+                 showParen, showString, showsPrec, show)
+  import List
+
+\end{code}
+
+\begin{code}    
+ -- A supplementary deferred section
+ 
+\end{code}
+
+%%[propositions.hs]
+\begin{code}     
+ -- A final comment
+ 
+\end{code}
+\end{document}
+
+
+
+
+
+
+
+

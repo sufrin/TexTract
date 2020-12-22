@@ -1,5 +1,5 @@
 /**
-        $Id: textract.scala 75 2016-07-29 15:39:48Z sufrin $
+        $Id: textract.scala 83 2020-12-22 17:52:32Z sufrin $
 */
 import scala.collection.mutable._
 import java.io._
@@ -18,6 +18,7 @@ class Textractor
   var number   = false
   var codePat  = "code"
   var ansPat   = "ans"
+  var debug    = false
   
   def transDoc(aLine: String) =
   { var line = aLine
@@ -91,7 +92,7 @@ class Textractor
   pragma .update(".cpp",   "#line %n \"%f\"")
   
   def formatLinePragma(line: Int, file: String): String =
-  { linePragma.replaceAllLiterally("%n", line.toString).replaceAllLiterally("%f", file)
+  { linePragma.replace/*AllLiterally*/("%n", line.toString).replace/*AllLiterally*/("%f", file)
   }
   
   def newComments(spec: String) : Unit =
@@ -153,6 +154,8 @@ class Textractor
            Pattern.compile("^\\s*\\\\(begin|end)\\s*\\{(class|obj|hideclass|hideobj)\\**\\}\\s*(\\[(.*)\\])?\\s*(\\{([^}]*)\\})?.*$")
         else
            Pattern.compile("^\\s*\\\\(begin|end)\\s*\\{[+-=|*]*("+codePat+")[+-=|*]*\\}\\s*(\\[(.*)\\])?\\s*(\\{([^}]*)\\})*.*$")
+           
+    val setFile = Pattern.compile("^\\s*%+\\s*(\\[(.*)\\]).*")
     
     val fileField = 
          if (legacy) 6 else 4
@@ -163,19 +166,26 @@ class Textractor
     
     var out : ChunkWriter = null
     
-    var lastFileName : String = ""
+    var lastFileName : String = "" 
+    var presetFileName : String = null
         
     for (i<-0 until source.length)
     { val m = pat.matcher(source(i))
+      val s = setFile.matcher(source(i))
+      if (s.matches) { presetFileName = s group 2; if (debug) System.err.println(s"$i: %%%%%%% [$presetFileName]") }
+      else
       if (m.matches)
       { (m.group(1), m.group(2)) match
         { case ("end",   kind)  => { send = false; out = null }
           
           case ("begin", kind) =>
-          { if (m.groupCount >= fileField) 
+          { if (m.groupCount >= fileField || presetFileName!=null) 
             {  var fileName = m group fileField
-               if (fileName==null || fileName=="") fileName=lastFileName
-               if (fileName!=null && fileName!="" && isChunkName(fileName))
+               /* If there's a preset, then we are using fancyvrb-style environments with customizations  */
+               if (presetFileName!=null) fileName=presetFileName
+               if (debug) System.err.println(s"$i: \\begin{$kind}[$fileName] % $lastFileName")
+               
+               if (fileName!=null && fileName!="" && isChunkName(fileName))               
                { send = true
                  lastFileName = fileName
                  fileName = mkChunkName(fileName)
@@ -189,11 +199,14 @@ class Textractor
                       case _  =>
                       { out  = chunkWriter
                         System.out.println("*   "+fileName)
-                        chunks update(mkChunkName(fileName), out)
+                        chunks.update(mkChunkName(fileName), out)
                       }
                    }
                  }
                }
+               else
+               if (fileName==null || fileName=="") fileName=lastFileName 
+
             }
           } 
           
@@ -210,8 +223,8 @@ class Textractor
   }
   
   /** Second pass: translate the file and expand the chunk names */
-  def translate(file: File, source: Array[String])
-  { val sourceModified = file.lastModified
+  def translate(file: File, source: Array[String]) : Unit =
+  { val sourceModified = file.lastModified()
   
     val chunks = readChunks(file, source)
     
@@ -226,10 +239,15 @@ class Textractor
            Pattern.compile("^\\s*\\\\(begin|end)\\s*\\{(class|obj|hideclass|hideobj|doc|ans)\\**\\}\\s*(\\[(.*)\\])?\\s*(\\{([^}]*)\\})?.*$")
         else
            Pattern.compile("^\\s*\\\\(begin|end)\\s*\\{[+-=|*]*("+codePat+"|"+ansPat+")[+-=|*]*\\}\\s*(\\[(.*)\\])?\\s*(\\{([^}]*)\\})*.*$")
+
+    val setFile = Pattern.compile("^\\s*%+\\s*(\\[(.*)\\]).*")
     
     val fileField = 
          if (legacy) 6 else 4
-    
+         
+    var lastFileName   : String = "" 
+    var presetFileName : String = null
+   
     var streams = new HashMap[String,PrintWriter]
     
     var out : PrintWriter = null    
@@ -290,7 +308,7 @@ class Textractor
         
         case None    => 
         { val p = makeWriter(fileName)
-          streams update (fileName, p) 
+          streams.update (fileName, p) 
           if (compress) 
           {  if (legacy) p.println("/* Extracted by TexTract from: "+file.getName +" */")
           }
@@ -306,22 +324,22 @@ class Textractor
     def expandingChunks: String =
     { expanding reduceLeft ((l: String, r: String)=>(l+","+r))}
     
-    def startExpanding(name: String) 
+    def startExpanding(name: String): Unit = 
     { val theName = mkChunkName(name)
       if (expanding contains theName)
          throw new TextException("Cyclic chunk: "+expandingChunks)
       expanding.push(theName)
     }
     
-    def stopExpanding(name: String)
-    { expanding.pop }
+    def stopExpanding(name: String) : Unit = 
+    { expanding.pop() }
     
-    def expandlines(text: String) 
+    def expandlines(text: String) : Unit = 
     { val lines = text.split("\n")
       for (i<-0 until lines.length)
       {   val line = lines(i)
           if (isSourceNumber(line))
-             makeLineMark(getSourceNumber(line))
+             { if (number || !compress) makeLineMark(getSourceNumber(line)) }
           else
           if (isChunkName(line)) 
           {  startExpanding(line)
@@ -351,6 +369,9 @@ class Textractor
     
     for (i<-0 until source.length)
     { val m = pat.matcher(source(i))
+      val s = setFile.matcher(source(i))
+      if (s.matches) { presetFileName = s group 2; if (debug) System.err.println(s"$i: %%%%%%% [$presetFileName]") }
+      else
       if (m.matches)
       { var docFlipped = false
         (m.group(1), m.group(2)) match
@@ -369,8 +390,15 @@ class Textractor
               case "code"      => { "" }
             }
             send = true
-            if ((m.groupCount >= fileField) && (m.group(fileField) != null)) 
-            {  val fileArg = m group fileField
+            
+            if (((m.groupCount >= fileField) && (m.group(fileField) != null)) || presetFileName!=null) 
+            {  var fileArg = m group fileField
+               /* Preset filenames override [...] option after the environment beginning, because we
+                  are using fancyvrb environments.
+               */
+               if (presetFileName!=null) fileArg=presetFileName
+               if (debug) System.err.println(s"$i: \\begin{$kind}[$fileArg]")
+
                if (fileArg!="")
                {  fileName = fileArg
                   if (!isChunkName(fileName)) 
@@ -396,11 +424,11 @@ class Textractor
            { }
         else
         if (isChunkName(line)) 
-        {  if (number) makeLineMark(i)
+        {  if (number && !compress) makeLineMark(i)
            startExpanding(line)
            getChunk(line) match
            { case Some(text) => 
-             { if (number) makeLineMark(i)
+             { if (number && !compress) makeLineMark(i)
                expandlines(text.toString)
              }
              case None       => 
@@ -431,7 +459,7 @@ class Textractor
     translate(file, string split "\n")    
   }
 
-  def main (args: Array[String])
+  def main (args: Array[String]) : Unit = 
   { for (arg<-args)
         if (arg startsWith "-enc=")  
         {
@@ -465,13 +493,17 @@ class Textractor
         else
         if (arg == "-c")             
         {
-           legacy = true
+           compress = true
         }
         else
         if (arg == "-n")             
         {
            number   = true
            compress = true
+        }
+        else if (arg == "-d")             
+        {
+           debug   = true
         }
         else
         if (arg startsWith "-c=")   
@@ -516,7 +548,7 @@ Directives:
   -pragmas=<specs>  Specify output language line number pragma conventions
   -code=<specs>     Specify the {code} pattern -- initially 'code'
   
-  $Id: textract.scala 75 2016-07-29 15:39:48Z sufrin $
+  $Id: textract.scala 83 2020-12-22 17:52:32Z sufrin $
 """)   
         }
         else
@@ -554,7 +586,7 @@ package ant
     def setPragmas(spec: String)                 = { ext.newPragmas(spec) }
     def addConfiguredFileSet(fs: FileSet) : Unit = { fileSets+=fs }
     
-    override def execute
+    override def execute : Unit =
     { if (file==null && fileSets.isEmpty)
          throw new BuildException("'file' attribute or  nested <fileset> element required")
       else
@@ -587,6 +619,12 @@ object textract
   def main (args: Array[String]) = new Textractor().main(args)
 }
   
+
+
+
+
+
+
 
 
 

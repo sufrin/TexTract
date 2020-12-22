@@ -1,16 +1,15 @@
 <?xml version="1.0"?>
 <!-- 
-        $Id: build.xml 73 2016-07-29 15:09:45Z sufrin $ 
+        $Id: build.xml 81 2020-11-09 18:32:46Z sufrin $ 
 -->
 <project name="Textract"  default="textract">
 
   <property name="base.dir"      value="${basedir}"         />                
   <property name="sources.dir"   value="${base.dir}/src"    />  
-  <property name="scala.home"    value="${user.home}/Scala" />
+  <property name="scala.home"    value="${user.home}/Scala/" />
   <property name=".ant"          value="${user.home}/.ant" />
+  <import file="scalatasks.xml"/>
 
-  <!-- additional ant resources for scala -->
-  <property name="scala.local"  value="${user.home}/ScalaLocal" /> 
 
   <!-- jars to go on the compilation class path --> 
   <property name="local.jars"   value="." />  
@@ -19,9 +18,15 @@
   <property name="build.dir"     value="${base.dir}/BUILD"  />  
   <property name="tests.dir"     value="${base.dir}/TESTS"  />  
   <property name="doc.dir"       value="${base.dir}/DOCS"   />  
+  
+  
+      <path id="scalatasks.classpath">
+             <path refid="scala.compile.classpath"/>          
+             <fileset dir="${scala.home}">
+               <include name="**/*.jar"/>
+              </fileset>
+      </path>
 
-                  
-  <import file="${.ant}/scalatasks.xml"/>
 
   <path id="compile.classpath">
      <path refid="scala.compile.classpath"/>
@@ -33,7 +38,6 @@
        <include name="ant.jar"/>
      </fileset>     
   </path>
-  
     
   <target name="compile" depends="scalatasks" description="Compile">  
     <mkdir dir="${build.dir}"/>
@@ -42,9 +46,10 @@
             deprecation  = "on"         
             unchecked    = "on"         
             classpathref = "compile.classpath"
-            force        = "changed"
             >
-       <include name="**/*.scala"/>    
+       <fileset dir="${sources.dir}">
+         <include name="**/*.scala"/> 
+       </fileset>   
     </scalac>
   </target>
   
@@ -148,6 +153,11 @@
   </target>
     
 </project>
+
+
+
+
+
 
 
 
