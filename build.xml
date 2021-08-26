@@ -140,6 +140,7 @@
                number="on"
                comments="/.xyz/(*/*)/pqr/(*/*)"
                file="doc/textract.tex"/>
+    <copy file="doc/gitdate.sh" todir="${build.dir}"/>
     <copy file="doc/textract.tex" todir="${build.dir}"/>
     <copy file="doc/CopyLeft197.pdf" todir="${build.dir}"/>
     <copy file="sty/textract.sty" todir="${build.dir}"/>
@@ -148,11 +149,13 @@
           <arg file="${build.dir}/textract.tex"/> 
     </exec> 
     <exec executable="pdflatex" dir="${build.dir}"> 
+          <arg line="--shell-escape"/> 
           <arg file="${build.dir}/textract.tex"/> 
     </exec> 
   </target>
     
 </project>
+
 
 
 

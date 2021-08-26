@@ -5,6 +5,7 @@
 \usepackage{amssymb}
 \usepackage[mathletters]{ucs}
 \usepackage[utf8x]{inputenc}
+\usepackage{GIT}
 %
 %
 % Extra definitions for Unicode characters not in the standard packages
@@ -58,7 +59,7 @@
 
 {{
 \vfill
-\mbox{$Subversion$ $Revision: 83 $}\\
+\mbox{GitHub \GITVERSION\ of \GITDATE (Formerly Subversion Revision: 83)}\\
 \it \mbox{Copyleft
 \raisebox{-0.6ex}{\pdffig[height=2.5ex]{CopyLeft197}}
 2008}, The Master, Fellows, and Scholars, Christnose College.
@@ -106,8 +107,7 @@ All Wrongs Reversed.}}
 \title{\TexTract\\{\Large a demiliterate\thanks{pronounced \textit{demmy} \textit{literate}}
 \ programming system}}
 \author{
-Fr. Saul N. Braindrane\thanks{Saul Braindrane holds 
-          the Kiwipedia Chair of Practical Contrarianism, and is 
+Fr. Saul N. Braindrane\thanks{Saul Braindrane is 
           Fellow and Tutor in Computational Theology at
           Christnose College, Oxford.}
 \\
@@ -821,7 +821,7 @@ The task has the following parameters
   <textract   root      = "TEXTRACT"      \textrm{Output paths are prefixed with this path}
               compress  = "off"           \textrm{Output files are not compressed}
               code      = "code"          \textrm{core of the block kind of a code section}
-              ans       = "ans"           \textrm{name of the answer environment}
+              ans       = "ans|answer"    \textrm{pattern matching the block kind of an answer environment}
               answers   = "on"            \textrm{code within ans(wer) environments is not excluded}
               number    = "off"           \textrm{No line-number comments are placed in output files}
               enc       = "UTF8"          \textrm{Encoding of input and output files}
@@ -865,7 +865,7 @@ replaced (everywhere) by the line number.
  textract [switch]* [file]*
  
    -c                compress output (eliminate latex source lines)
-   -a                suppress classes contained within {ans} environments (implies -c)
+   -a                suppress classes contained within \{ans|answer\} environments (implies -c)
    -d=<root>         specify root directory for output  
    -c=<root>         implies -c -d=<root>  
    -a=<root>         implies -a -c=<root> 
@@ -874,6 +874,7 @@ replaced (everywhere) by the line number.
    -n                place line-number comments on output lines
    -enc=<enc>        Input and output file(s) are in the given encoding (default is UTF8)
    -code=<pat>       Specify the \{code\} pattern -- initially 'code'
+   -ans=<specs>      Specify the \{ans\} pattern -- initially {ans|answer} 
    -comments=<specs> Specify output language comment conventions 
                      (see Ant Task)
    -pragmas=<specs>  Specify output language line number pragma conventions 
@@ -954,6 +955,7 @@ can be interpreted properly, \textit{i.e} as \textit{customization specification
 \end{verbatim}
 \clearpage
 \end{document}
+
 
 
 

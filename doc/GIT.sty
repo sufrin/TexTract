@@ -1,0 +1,17 @@
+\immediate\write18{sh ./gitdate.sh > \jobname.gitdate}
+\input{\jobname.gitdate}
+{
+\newcount\minutes
+\newcount\hrs
+\hrs=\time
+\divide\hrs by60
+\minutes=-\hrs
+\multiply\minutes by60
+\advance\minutes by\time
+\def\@one@dn{\global\edef\now{\number\hrs:0\number\minutes}}
+\def\@two@dn{\global\edef\now{\number\hrs:\number\minutes}}
+\ifcase\minutes \@one@dn \or \@one@dn \or \@one@dn \or \@one@dn
+                \@one@dn \or \@one@dn \or \@one@dn \or \@one@dn
+                \@one@dn \or \@one@dn \else \@two@dn \fi
+}
+

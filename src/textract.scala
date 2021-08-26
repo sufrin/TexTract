@@ -17,7 +17,7 @@ class Textractor
   var legacy   = false
   var number   = false
   var codePat  = "code"
-  var ansPat   = "ans"
+  var ansPat   = "ans|answer"
   var debug    = false
   
   def transDoc(aLine: String) =
@@ -153,7 +153,7 @@ class Textractor
         if (legacy)
            Pattern.compile("^\\s*\\\\(begin|end)\\s*\\{(class|obj|hideclass|hideobj)\\**\\}\\s*(\\[(.*)\\])?\\s*(\\{([^}]*)\\})?.*$")
         else
-           Pattern.compile("^\\s*\\\\(begin|end)\\s*\\{[+-=|*]*("+codePat+")[+-=|*]*\\}\\s*(\\[(.*)\\])?\\s*(\\{([^}]*)\\})*.*$")
+           Pattern.compile("^\\s*\\\\(begin|end)\\s*\\{[+-=|*]*("+codePat+"|"+ansPat+")[+-=|*]*\\}\\s*(\\[(.*)\\])?\\s*(\\{([^}]*)\\})*.*$")
            
     val setFile = Pattern.compile("^\\s*%+\\s*(\\[(.*)\\]).*")
     
@@ -163,6 +163,7 @@ class Textractor
     var chunks = new HashMap[String, ChunkWriter]
     
     var send = false
+    var ans  = false  // inside an ans environment
     
     var out : ChunkWriter = null
     
@@ -176,8 +177,10 @@ class Textractor
       else
       if (m.matches)
       { (m.group(1), m.group(2)) match
-        { case ("end",   kind)  => { send = false; out = null }
-          
+        { 
+          case ("begin", a) if a matches ansPat => ans = true       
+          case ("end",   a) if a matches ansPat => ans = false          
+          case ("end",   kind)  => { send = false; out = null }
           case ("begin", kind) =>
           { if (m.groupCount >= fileField || presetFileName!=null) 
             {  var fileName = m group fileField
@@ -213,6 +216,9 @@ class Textractor
           case (_, _) => throw new Error("Catastrophe: pattern match implementation")         
         }
       }
+      else
+      if (ans && !answers) 
+         { }
       else
       if (send) 
       { out.println(sourceNumberFormat.format(i))
@@ -375,10 +381,10 @@ class Textractor
       if (m.matches)
       { var docFlipped = false
         (m.group(1), m.group(2)) match
-        { case ("begin", "ans") => ans = true         
-          case ("end",   "ans") => ans = false       
-          case ("end",   "doc") => { doc  = false; docFlipped = true }
-          case ("end",   kind)  => { send = false; out = PrintSink }
+        { case ("begin", a) if a matches ansPat => ans = true         
+          case ("end",   a) if a matches ansPat => ans = false       
+          case ("end",   "doc")          => { doc  = false; docFlipped = true }
+          case ("end",   kind)           => { send = false; out = PrintSink }
           
           case ("begin", kind) =>
           { val extension = kind match
@@ -471,6 +477,11 @@ class Textractor
            codePat=(arg.substring(6)) 
         }
         else
+        if (arg startsWith "-ans=")  
+        {
+           ansPat=(arg.substring(5)) 
+        }
+        else
         if (arg startsWith "-comments=")  
         {
            newComments(arg.substring(10)) 
@@ -536,7 +547,7 @@ class Textractor
 Usage:                   textract [directive | path]*
 Directives:
   -c                compress output (eliminate latex source lines)
-  -a                suppress classes contained within {ans} environments (implies -c)
+  -a                suppress classes contained within {ans|answers} environments (implies -c)
   -d=<root>         specify root directory for output  
   -c=<root>         implies -c -d=<root>  
   -a=<root>         implies -a -c=<root> 
@@ -547,8 +558,9 @@ Directives:
   -comments=<specs> Specify output language comment conventions
   -pragmas=<specs>  Specify output language line number pragma conventions
   -code=<specs>     Specify the {code} pattern -- initially 'code'
+  -ans=<specs>      Specify the {ans} pattern -- initially 'ans|answer'
   
-  $Id: textract.scala 83 2020-12-22 17:52:32Z sufrin $
+  Copyright (C) 2008-2021, Bernard Alan Sufrin, Worcester College, Oxford
 """)   
         }
         else
@@ -619,6 +631,7 @@ object textract
   def main (args: Array[String]) = new Textractor().main(args)
 }
   
+
 
 
 
